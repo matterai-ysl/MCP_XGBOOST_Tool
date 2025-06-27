@@ -1,0 +1,16 @@
+{
+	"mcpServers": {
+	  "context7": {
+		"command": "npx",
+		"args": ["-y", "@upstash/context7-mcp@latest"]
+	  },
+	  "taskmaster-ai": {
+		"command": "npx",
+		"args": ["--package=task-master-ai@latest", "task-master-ai"],
+		"env": {
+		  "GOOGLE_API_KEY": "sk-Dy52NmsiEp2PEHLeAXiKejmBV8QvSOaHOP9Wn1QplcYT5yyT",
+		  "OPENAI_API_KEY": "sk-Dy52NmsiEp2PEHLeAXiKejmBV8QvSOaHOP9Wn1QplcYT5yyT"
+		}
+	  }
+	}
+  }

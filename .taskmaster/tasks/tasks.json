@@ -1,0 +1,333 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Project Repository",
+        "description": "Initialize the project repository with necessary dependencies and structure.",
+        "details": "Create a new Git repository. Initialize with README.md and LICENSE files. Set up virtual environment and install dependencies specified in PRD.",
+        "testStrategy": "Verify that all dependencies are correctly installed and the repository is accessible.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create New Git Repository",
+            "description": "Initialize a new Git repository for the project.",
+            "dependencies": [],
+            "details": "Use Git command line tools or a GUI to create a new repository in the desired directory. Ensure that the repository is initialized with a .git folder.",
+            "status": "done",
+            "testStrategy": "Verify the presence of the .git folder and check that Git commands like 'git status' work without errors."
+          },
+          {
+            "id": 2,
+            "title": "Add README.md and LICENSE Files",
+            "description": "Create and add README.md and LICENSE files to the repository.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create a README.md file with basic project information and a LICENSE file with the appropriate license text. Use 'git add' to stage these files and 'git commit' to commit them to the repository.\n<info added on 2025-06-27T11:20:41.673Z>\n- Created an MIT license file.\n- Updated the README.md file to include a project overview, features, installation instructions, dependency list, project structure, and development roadmap.\n- Included installation instructions using the UV package manager in the README.md.\n- Ensured the documentation structure is clear and contains all necessary project information.\n</info added on 2025-06-27T11:20:41.673Z>",
+            "status": "done",
+            "testStrategy": "Check that both files are present in the repository and contain the correct information. Verify the commit history includes these additions."
+          },
+          {
+            "id": 3,
+            "title": "Set Up Virtual Environment",
+            "description": "Create a virtual environment for managing project dependencies.",
+            "dependencies": [
+              2
+            ],
+            "details": "Use a tool like venv or virtualenv to create a virtual environment in the project directory. Activate the environment to ensure it is set up correctly.",
+            "status": "done",
+            "testStrategy": "Activate the virtual environment and check that the Python interpreter is using the environment's paths."
+          },
+          {
+            "id": 4,
+            "title": "Install Project Dependencies",
+            "description": "Install necessary dependencies as specified in the PRD within the virtual environment.",
+            "dependencies": [
+              3
+            ],
+            "details": "Use pip to install dependencies listed in a requirements file or as specified in the PRD. Ensure the virtual environment is activated before installation.\n<info added on 2025-06-27T12:03:53.266Z>\n已成功使用UV安装项目依赖:\n- 创建了完整的requirements.txt文件，包含所有必需的依赖包\n- 使用uv pip install -r requirements.txt成功安装了所有依赖\n- 关键包版本验证:\n  * xgboost 3.0.2 (最新稳定版)\n  * scikit-learn 1.6.1 \n  * pandas 2.2.3\n  * numpy 1.26.4\n  * optuna 4.3.0 (超参数优化)\n  * shap 0.47.2 (特征重要性)\n  * fastapi 0.115.14 (MCP服务器)\n  * mcp 1.9.3 (MCP协议)\n- 所有依赖安装过程无错误，环境配置完成\n</info added on 2025-06-27T12:03:53.266Z>",
+            "status": "done",
+            "testStrategy": "Run 'pip list' to verify that all specified dependencies are installed in the virtual environment."
+          },
+          {
+            "id": 5,
+            "title": "Commit Initial Project Structure",
+            "description": "Commit the initial project structure including the virtual environment setup to the repository.",
+            "dependencies": [
+              4
+            ],
+            "details": "Use 'git add' to stage all changes related to the project setup, including the virtual environment setup files (excluding the environment itself). Commit these changes with a descriptive message.",
+            "status": "in-progress",
+            "testStrategy": "Verify the commit history includes the setup changes and check that the repository reflects the intended project structure."
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Create XGBoostWrapper Class",
+        "description": "Develop the XGBoostWrapper class to replace RandomForestWrapper.",
+        "details": "Implement the XGBoostWrapper class with methods for automatic task type detection, regression and classification support, feature importance calculation, and cross-validation.",
+        "testStrategy": "Unit test each method for expected functionality and integration with XGBoost library.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Update MCP Server Functions",
+        "description": "Modify mcp_server.py to integrate XGBoost functions.",
+        "details": "Refactor existing functions in mcp_server.py to utilize the XGBoostWrapper class for model training and prediction.",
+        "testStrategy": "Perform integration tests to ensure server functions correctly utilize XGBoost capabilities.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Refactor TrainingEngine",
+        "description": "Adapt TrainingEngine to support XGBoost.",
+        "details": "Update TrainingEngine to include hyperparameter optimization, evaluation metrics, early stopping, and optional GPU training for XGBoost.",
+        "testStrategy": "Run training sessions to validate hyperparameter optimization and early stopping functionality.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement train_xgboost_regressor Function",
+        "description": "Develop the train_xgboost_regressor function for regression tasks.",
+        "details": "Implement function with parameters for data source, target dimension, hyperparameter optimization, and XGBoost-specific settings like early stopping rounds and eval metric.",
+        "testStrategy": "Unit test with various datasets to ensure regression model accuracy and performance.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement train_xgboost_classifier Function",
+        "description": "Develop the train_xgboost_classifier function for classification tasks.",
+        "details": "Implement function with parameters for data source, target dimension, hyperparameter optimization, and XGBoost-specific settings like early stopping rounds and eval metric.",
+        "testStrategy": "Unit test with binary and multi-class datasets to ensure classification model accuracy and performance.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Develop predict_from_file Function",
+        "description": "Create predict_from_file function for batch predictions.",
+        "details": "Implement batch prediction functionality with enhanced confidence interval calculations using XGBoost.",
+        "testStrategy": "Test batch predictions with various file inputs to validate accuracy and confidence intervals.",
+        "priority": "medium",
+        "dependencies": [
+          5,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Develop predict_from_values Function",
+        "description": "Create predict_from_values function for real-time predictions.",
+        "details": "Implement real-time prediction functionality with XGBoost-specific enhancements.",
+        "testStrategy": "Test real-time predictions with sample inputs to ensure response time and accuracy.",
+        "priority": "medium",
+        "dependencies": [
+          5,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement Global Feature Importance Analysis",
+        "description": "Develop analyze_global_feature_importance function for global feature analysis.",
+        "details": "Implement feature importance analysis using gain, cover, weight, permutation, and SHAP values.",
+        "testStrategy": "Validate feature importance outputs against known benchmarks and datasets.",
+        "priority": "medium",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement Local Feature Importance Analysis",
+        "description": "Enhance analyze_local_feature_importance function for local feature analysis.",
+        "details": "Enhance existing local feature importance analysis with improved SHAP capabilities.",
+        "testStrategy": "Test local feature importance analysis with sample data to ensure accuracy and detail.",
+        "priority": "medium",
+        "dependencies": [
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Model Management Functions",
+        "description": "Develop functions for model management including listing, retrieving, and deleting models.",
+        "details": "Implement list_models, get_model_info, and delete_model functions to manage XGBoost models.",
+        "testStrategy": "Test model management functions to ensure correct model handling and information retrieval.",
+        "priority": "medium",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Update HyperparameterOptimizer",
+        "description": "Refactor HyperparameterOptimizer to support XGBoost parameters.",
+        "details": "Update optimizer to handle XGBoost-specific parameters like n_estimators, max_depth, learning_rate, etc.",
+        "testStrategy": "Test hyperparameter optimization with various parameter sets to ensure convergence and performance.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Enhance FeatureImportanceAnalyzer",
+        "description": "Refactor FeatureImportanceAnalyzer for XGBoost-specific analysis.",
+        "details": "Update analyzer to support XGBoost-specific feature importance metrics and visualization.",
+        "testStrategy": "Validate feature importance analysis against benchmark datasets.",
+        "priority": "medium",
+        "dependencies": [
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Update Cross-Validation Strategy",
+        "description": "Enhance cross-validation strategy for XGBoost models.",
+        "details": "Implement improved cross-validation techniques suitable for XGBoost models.",
+        "testStrategy": "Test cross-validation with various datasets to ensure robustness and reliability.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Enhance Evaluation Metrics",
+        "description": "Update evaluation metrics to include XGBoost-specific metrics.",
+        "details": "Integrate XGBoost-specific evaluation metrics into the training and validation processes.",
+        "testStrategy": "Validate evaluation metrics with sample models to ensure accuracy and relevance.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Update HTML Report Generator",
+        "description": "Enhance HTML report generation for model results.",
+        "details": "Update report generator to include detailed analysis and visualization of XGBoost model results.",
+        "testStrategy": "Generate reports for sample models to ensure completeness and clarity.",
+        "priority": "low",
+        "dependencies": [
+          11
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Adjust Visualization Components",
+        "description": "Refactor visualization components for improved model insights.",
+        "details": "Enhance visualization tools to better represent XGBoost model insights and feature importance.",
+        "testStrategy": "Test visualization outputs with sample data to ensure accuracy and informativeness.",
+        "priority": "low",
+        "dependencies": [
+          16
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Update Academic Report Format",
+        "description": "Adjust academic report format to include XGBoost insights.",
+        "details": "Refactor academic report templates to incorporate XGBoost-specific findings and analyses.",
+        "testStrategy": "Review academic report outputs to ensure they meet scholarly standards.",
+        "priority": "low",
+        "dependencies": [
+          16
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Complete Functional Testing",
+        "description": "Conduct comprehensive functional testing of all modules.",
+        "details": "Perform end-to-end testing of all implemented functions to ensure they meet requirements.",
+        "testStrategy": "Execute test cases covering all functionalities and edge cases.",
+        "priority": "high",
+        "dependencies": [
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Optimize Performance",
+        "description": "Optimize performance of XGBoost MCP tool.",
+        "details": "Implement performance enhancements and memory optimizations across the tool.",
+        "testStrategy": "Conduct performance benchmarking and profiling to ensure efficiency improvements.",
+        "priority": "high",
+        "dependencies": [
+          19
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-06-27T11:13:31.607Z",
+      "updated": "2025-06-27T12:04:02.653Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

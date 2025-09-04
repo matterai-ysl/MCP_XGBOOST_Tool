@@ -440,7 +440,7 @@ class PredictionEngine:
             if include_confidence:
                 confidence_scores = self._get_confidence_scores(model, X, model_info['task_type'])
                 if confidence_scores:
-                    logger.info("Confidence calculated using Random Forest tree variance")
+                    logger.info("Confidence calculated using XGBoost prediction variance")
             
             # Format predictions based on task type and whether it's single/batch
             # Use numeric predictions for formatting to ensure we get integers for classification
@@ -731,7 +731,7 @@ class PredictionEngine:
         Get confidence scores for predictions.
         
         For classification: Uses maximum class probability as confidence.
-        For regression: Uses prediction variance from individual trees in Random Forest.
+        For regression: Uses XGBoost/ensemble prediction variance or fallback methods.
         
         Returns:
             List of confidence scores (0-1), where higher values indicate more confident predictions.
@@ -743,9 +743,9 @@ class PredictionEngine:
                 confidence_scores = np.max(probabilities, axis=1).tolist()
                 logger.info("Confidence calculated using maximum class probability")
             else:
-                # For regression, calculate confidence using prediction variance from ensemble
+                # For regression, calculate confidence using model-specific methods
                 if hasattr(model, 'estimators_'):
-                    # Random Forest: Use variance across individual tree predictions
+                    # For ensemble models: Use variance across individual tree predictions
                     individual_predictions = np.array([tree.predict(X) for tree in model.estimators_])
                     
                     # Handle multi-target predictions
@@ -761,9 +761,50 @@ class PredictionEngine:
                         # Convert variance to confidence (inverse relationship)
                         confidence_scores = (1.0 / (1.0 + variances)).tolist()
                     
-                    logger.info("Confidence calculated using Random Forest tree variance")
+                    logger.info("Confidence calculated using ensemble tree variance")
+                elif hasattr(model, 'get_booster'):
+                    # XGBoost: Use leaf value variance across trees
+                    try:
+                        import xgboost as xgb
+                        
+                        # Get predictions from individual trees
+                        booster = model.get_booster()
+                        dmatrix = xgb.DMatrix(X)
+                        
+                        # Get predictions from each tree iteration
+                        n_trees = model.n_estimators
+                        tree_predictions = []
+                        
+                        for i in range(n_trees):
+                            # Predict using only trees up to iteration i
+                            pred_i = booster.predict(dmatrix, iteration_range=(i, i+1))
+                            tree_predictions.append(pred_i)
+                        
+                        tree_predictions = np.array(tree_predictions)
+                        
+                        # Calculate variance across tree predictions for each sample
+                        if tree_predictions.ndim == 3:  # (n_trees, n_samples, n_targets)
+                            variances = np.var(tree_predictions, axis=0)  # (n_samples, n_targets)
+                            confidence_scores = 1.0 / (1.0 + np.mean(variances, axis=1))
+                        else:  # (n_trees, n_samples) - single target
+                            variances = np.var(tree_predictions, axis=0)  # (n_samples,)
+                            confidence_scores = 1.0 / (1.0 + variances)
+                        
+                        confidence_scores = confidence_scores.tolist()
+                        logger.info("Confidence calculated using XGBoost tree-by-tree variance")
+                        
+                    except Exception as xgb_error:
+                        logger.warning(f"XGBoost-specific confidence calculation failed: {xgb_error}, using fallback")
+                        # Fallback to magnitude-based confidence
+                        predictions = model.predict(X)
+                        if predictions.ndim == 1:
+                            confidence_scores = [1.0 / (1.0 + abs(pred)) for pred in predictions]
+                        else:
+                            confidence_scores = [1.0 / (1.0 + np.mean(np.abs(pred))) for pred in predictions]
+                        logger.info("Confidence calculated using XGBoost prediction magnitude (fallback)")
+                        
                 else:
-                    # Fallback for non-ensemble models
+                    # Fallback for other models
                     predictions = model.predict(X)
                     # Use inverse of prediction magnitude as a simple confidence measure
                     if predictions.ndim == 1:
@@ -772,7 +813,7 @@ class PredictionEngine:
                         # Multi-target: average across targets
                         confidence_scores = [1.0 / (1.0 + np.mean(np.abs(pred))) for pred in predictions]
                     
-                    logger.info("Confidence calculated using prediction magnitude (fallback method)")
+                    logger.info("Confidence calculated using prediction magnitude (general fallback)")
             
             return confidence_scores
             

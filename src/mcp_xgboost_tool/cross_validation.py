@@ -195,6 +195,10 @@ class CrossValidationStrategy:
         Returns:
             Dictionary with cross-validation results
         """
+        print("original_X", original_X)
+        print("original_y", original_y)
+        print("original_feature_names", original_feature_names)
+        print("original_target_name", original_target_name)
         try:
             # Use provided original data or create from current data
             if original_X is not None and original_y is not None:
@@ -276,6 +280,8 @@ class CrossValidationStrategy:
                 y_pred_proba_cv = None
             
             # Save data files if requested
+            print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            print("original_target_col", original_target_col)
             saved_files = {}
             if save_data:
                 saved_files = self._save_cv_data(
@@ -373,6 +379,8 @@ class CrossValidationStrategy:
         try:
             # 1. Save original data as CSV
             original_data_path = os.path.join(output_dir, f"{data_name}_original_data.csv")
+            print("original_data_path", original_data_path)
+            print("original_target_name", original_target_name)
             original_with_targets = original_X.copy()
             
             # Add target columns to original data

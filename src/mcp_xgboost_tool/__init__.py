@@ -1,7 +1,7 @@
 """
-MCP Random Forest Tool - A machine learning toolkit for MCP protocol.
+MCP XGBoost Tool - A machine learning toolkit for MCP protocol.
 
-This package provides complete random forest algorithm training, prediction, 
+This package provides complete XGBoost algorithm training, prediction, 
 and model management capabilities designed for AI applications and automated workflows.
 """
 

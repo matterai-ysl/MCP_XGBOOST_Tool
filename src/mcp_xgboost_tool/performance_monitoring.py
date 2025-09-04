@@ -1,7 +1,7 @@
 """
 Performance Monitoring Module
 
-This module provides advanced performance monitoring capabilities for Random Forest models:
+This module provides advanced performance monitoring capabilities for XGBoost models:
 - Historical performance tracking with time-series data
 - Model performance comparison across versions and time
 - Performance degradation detection with trend analysis

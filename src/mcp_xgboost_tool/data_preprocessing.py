@@ -1,5 +1,5 @@
 """
-Data Preprocessing Module for Random Forest MCP Tool
+Data Preprocessing Module for XGBoost MCP Tool
 """
 
 import logging

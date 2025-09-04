@@ -2291,8 +2291,6 @@ class DataValidator:
                 'continuous_distributions': {},
                 'categorical_distributions': {},
                 'distribution_issues': [],
-                'normality_tests': {},
-                'skewness_analysis': {},
                 'outlier_detection': {},
                 'summary_statistics': {}
             }

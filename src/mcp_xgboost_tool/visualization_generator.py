@@ -41,9 +41,9 @@ class VisualizationGenerator:
             
             # Extract data for plotting
             features = list(feature_importance.keys())
-            tree_importance = [data.get('tree_importance', 0) for data in feature_importance.values()]
-            perm_importance_mean = [data.get('permutation_importance_mean', 0) for data in feature_importance.values()]
-            perm_importance_std = [data.get('permutation_importance_std', 0) for data in feature_importance.values()]
+            tree_importance = [data.get('gain', 0) for data in feature_importance.values()]
+            perm_importance_mean = [data.get('permutation_mean', 0) for data in feature_importance.values()]
+            perm_importance_std = [data.get('permutation_std', 0) for data in feature_importance.values()]
             
             # Sort by tree importance for consistency
             sorted_indices = np.argsort(tree_importance)[::-1]  # Descending order

@@ -17,7 +17,7 @@ from datetime import datetime
 import shutil
 import zipfile
 import os
-from .random_forest import RandomForestWrapper
+from .xgboost_wrapper import XGBoostWrapper
 from .hyperparameter_optimizer import HyperparameterOptimizer
 from .cross_validation import CrossValidationStrategy
 from .data_utils import DataProcessor
@@ -61,7 +61,7 @@ class TrainingEngine:
         
         logger.info("Initialized TrainingEngine")
     
-    def _generate_training_report(self, model_directory: Path, metadata: Dict[str, Any]) -> str:
+    def _generate_html_training_report(self, model_directory: Path, metadata: Dict[str, Any]) -> str:
         """
         Generate comprehensive training report and save to model directory.
         
@@ -406,11 +406,11 @@ class TrainingEngine:
         
         return X, y, feature_names
     
-    def train_random_forest(
+    def train_xgboost(
         self, 
         data_source: Union[str, pd.DataFrame],
         target_column: Optional[str] = None,
-        model_name: Optional[str] = None,
+        model_id: Optional[str] = None,
         optimize_hyperparameters: bool = True,
         n_trials: int = 100,
         cv_folds: int = 5,
@@ -421,15 +421,17 @@ class TrainingEngine:
         apply_preprocessing: bool = True,
         scaling_method: str = "standard",
         task_type: str = None,
+        enable_gpu: bool = True,
+        device: str = "auto",
         **model_params
     ) -> Dict[str, Any]:
         """
-        Train a random forest model (auto-detects regression/classification).
+        Train an XGBoost model (auto-detects regression/classification) with optional GPU support.
         
         Args:
             data_source: File path or DataFrame with training data
             target_column: Name of target column (if None, uses last column)
-            model_name: Name for the saved model (if None, auto-generates)
+            model_id: Name for the saved model (if None, auto-generates)
             optimize_hyperparameters: Whether to run hyperparameter optimization
             n_trials: Number of optimization trials
             cv_folds: Number of cross-validation folds
@@ -437,7 +439,12 @@ class TrainingEngine:
             scoring_metric: Scoring metric for optimization
             validate_data: Whether to validate data quality
             save_model: Whether to save the trained model
-            **model_params: Additional parameters for the random forest model
+            apply_preprocessing: Whether to apply data preprocessing
+            scaling_method: Method for feature scaling ("standard", "minmax", "robust")
+            task_type: Force task type ("regression", "classification", or None for auto-detection)
+            enable_gpu: Whether to enable GPU training if available
+            device: Device to use ("auto", "cpu", "cuda", "gpu")
+            **model_params: Additional parameters for the XGBoost model
             
         Returns:
             Dictionary with training results
@@ -450,15 +457,14 @@ class TrainingEngine:
                 data_source, target_column, validate_data
             )
             
-            # Generate model ID and name early for validation report saving
-            model_id = model_name
+
             
             # 统一确定最终task_type
             task_type_param = task_type or model_params.pop('task_type', 'auto')
             # auto时才检查
             if task_type_param == 'auto':
-                temp_rf = RandomForestWrapper(task_type='auto')
-                final_task_type = temp_rf._detect_task_type(y)
+                temp_xgb = XGBoostWrapper(task_type='auto')
+                final_task_type = temp_xgb._detect_task_type(y)
             else:
                 final_task_type = task_type_param
             
@@ -569,13 +575,17 @@ class TrainingEngine:
                     logger.warning(f"Could not save raw training data: {e}")
             
 
-            # 初始化wrapper
+            # 初始化wrapper with GPU support and XGBoost-specific parameters
             base_params = {
                 'random_state': 42,
                 'n_jobs': -1,
+                'enable_gpu': enable_gpu,
+                'device': device,
                 **model_params
             }
-            rf = RandomForestWrapper(task_type=final_task_type, **base_params)
+            
+            # Add XGBoost-specific parameters if provided                
+            xgb_model = XGBoostWrapper(task_type=final_task_type, **base_params)
             
             # Apply data preprocessing if requested
             X_processed = X.copy()
@@ -647,7 +657,7 @@ class TrainingEngine:
                 y = y.ravel()
                 logger.info(f"Converted y from shape {y_processed.shape} to 1D array with shape {y.shape}")
             
-            logger.info(f"Starting training for model: {model_name} (ID: {model_id})")
+            logger.info(f"Starting training for model: {model_id} (ID: {model_id})")
             
             # Hyperparameter optimization
             optimization_results = {}
@@ -671,7 +681,9 @@ class TrainingEngine:
                         sampler_type=optimization_algorithm.upper(),
                         n_trials=n_trials,
                         cv_folds=cv_folds,
-                        random_state=42
+                        random_state=42,
+                        enable_gpu=enable_gpu,
+                        device=device
                     )
                     
                     # Run optimization with save_dir for CSV output
@@ -689,7 +701,7 @@ class TrainingEngine:
                     logger.info(f"Optimization completed. Best score: {best_score:.4f}")
                     
                     # Create optimized model
-                    rf = optimizer.create_optimized_model()
+                    xgb_model = optimizer.create_optimized_model()
                     
                 except Exception as e:
                     logger.warning(f"Hyperparameter optimization failed: {str(e)}")
@@ -716,29 +728,34 @@ class TrainingEngine:
                         except Exception as save_error:
                             logger.warning(f"Could not save failed optimization history: {save_error}")
                     
-                    # Create model with default parameters
-                    rf = RandomForestWrapper(task_type=final_task_type, **optimized_params)
-                    rf._initialize_model(final_task_type)
+                    # Create model with default parameters including GPU support
+                    xgb_model = XGBoostWrapper(
+                        task_type=final_task_type,
+                        enable_gpu=enable_gpu,
+                        device=device,
+                        **optimized_params
+                    )
+                    xgb_model._initialize_model(final_task_type)
             
             # Train the model
             logger.info("Training final model...")
-            rf.fit(X, y, feature_names=feature_names)
+            xgb_model.fit(X, y, feature_names=feature_names)
             
             # Perform cross-validation evaluation with CONSISTENT random seed
-            logger.info("Performing cross-validation evaluation...")
-            cv_results = rf.cross_validate(
-                X, y, 
-                cv_folds=cv_folds,
-                return_train_score=True,
-                task_type=final_task_type,
-                random_state=42  # 确保与超参数优化使用相同的随机种子
-            )
+            # logger.info("Performing cross-validation evaluation...")
+            # cv_results = xgb_model.cross_validate(
+            #     X, y, 
+            #     cv_folds=cv_folds,
+            #     return_train_score=True,
+            #     task_type=final_task_type,
+            #     random_state=42  # 确保与超参数优化使用相同的随机种子
+            # )
             
             # Get feature importance
-            feature_importance = rf.get_feature_importance_detailed()
+            feature_importance = xgb_model.get_all_feature_importances()
             
             # Get model information
-            model_info = rf.get_model_info()
+            model_info = xgb_model.get_model_info()
             
             # Save model if requested
             model_path = None
@@ -753,13 +770,13 @@ class TrainingEngine:
                     cv_output_dir = str(model_directory / "cross_validation_data")
                     
                     # Perform enhanced cross-validation with data saving
-                    enhanced_cv_results = rf.cross_validate(
+                    enhanced_cv_results = xgb_model.cross_validate(
                         X, y, 
                         cv_folds=cv_folds,
                         return_train_score=True,
                         save_data=True,
                         output_dir=cv_output_dir,
-                        data_name=model_name or model_id,
+                        data_name= model_id,
                         preprocessor=self.data_preprocessor if hasattr(self, 'data_preprocessor') else None,
                         feature_names=feature_names,
                         original_X=X_original,
@@ -799,11 +816,11 @@ class TrainingEngine:
                 # Get predictions for evaluation plots
                 # Use cross-validation predictions for proper scatter plot (not training set predictions)
                 try:
-                    if 'y_pred_cv' in cv_results and cv_results['y_pred_cv'] is not None:
-                        y_pred = cv_results['y_pred_cv']
+                    if 'y_pred_cv' in enhanced_cv_results and enhanced_cv_results['y_pred_cv'] is not None:
+                        y_pred = enhanced_cv_results['y_pred_cv']
                         logger.info("Using cross-validation predictions for evaluation plots")
                     else:
-                        y_pred = rf.predict(X)
+                        y_pred = xgb_model.predict(X)
                         logger.warning("Cross-validation predictions not available, using training set predictions")
                 except Exception as e:
                     logger.warning(f"Could not generate predictions: {e}")
@@ -817,7 +834,7 @@ class TrainingEngine:
                         logger.info(f"Saved label mapping for classification: {label_mapping['class_to_label']}")
                 # Compile comprehensive metadata for the model
                 comprehensive_metadata = {
-                    'model_name': model_name,
+                    'model_name': model_id,
                     'model_id': model_id,
                     'task_type': final_task_type,
                     'target_column': target_column,  # Keep original format (list or string)
@@ -830,8 +847,8 @@ class TrainingEngine:
                     },
                     'feature_names': feature_names,
                     'hyperparameters': optimized_params or base_params,
-                    'performance_metrics': cv_results['test_scores'],
-                    'cross_validation_results': cv_results,
+                    'performance_metrics': enhanced_cv_results['test_scores'],
+                    'cross_validation_results': enhanced_cv_results,
                     'feature_importance': feature_importance,
                     'model_info': model_info,
                     'optimization_results': optimization_results,
@@ -875,7 +892,7 @@ class TrainingEngine:
                         'processed_feature_count': X.shape[1],
                         'preprocessing_info': self.data_preprocessor.get_preprocessing_info() if hasattr(self, 'data_preprocessor') and self.data_preprocessor else None
                     },
-                    'model': rf.model,
+                    'model': xgb_model.model,
                     'X': X,
                     'y': y,
                     'y_true': y,
@@ -884,13 +901,13 @@ class TrainingEngine:
                 
                 # Save model using model manager
                 model_path = self.model_manager.save_model(
-                    model=rf.model,  # Save the actual sklearn model
+                    model=xgb_model.model,  # Save the actual XGBoost model
                     model_id=model_id,
                     metadata=comprehensive_metadata
                 )
                 
                 # Generate and save training report
-                html_report_path = self._generate_training_report(model_directory, comprehensive_metadata)
+                html_report_path = self._generate_html_training_report(model_directory, comprehensive_metadata)
                 
                 # Generate academic report
                 try:
@@ -906,8 +923,8 @@ class TrainingEngine:
                     
                     # Calculate model_score based on the primary scoring metric
                     model_score = 0
-                    if cv_results.get('test_scores'):
-                        test_scores = cv_results['test_scores']
+                    if enhanced_cv_results.get('test_scores'):
+                        test_scores = enhanced_cv_results['test_scores']
                         # For classification, try to get the score for the specified metric
                         if final_task_type == 'classification':
                             # Map scoring metrics to their uppercase equivalents in test_scores
@@ -957,7 +974,7 @@ class TrainingEngine:
                         'feature_names': feature_names,
                         'target_name': comprehensive_metadata['target_name'],
                         'target_names': comprehensive_metadata['target_name'],  # For compatibility
-                        'algorithm': 'Random Forest',
+                        'algorithm': 'XGBoost',
                         'cv_folds': cv_folds,
                         'random_state': base_params.get('random_state'),
                         'task_type': final_task_type,
@@ -967,14 +984,15 @@ class TrainingEngine:
                     }
                     
                     # Generate academic report
-                    academic_report_path = self.academic_report_generator.generate_report(
-                        model_directory=model_directory,
-                        model_metadata=academic_metadata,
-                        training_results=academic_training_results,
-                        hyperopt_results=academic_hyperopt_results,
-                        data_validation_results=validation_results
-                    )
-                    
+                    # academic_report_path = self.academic_report_generator.generate_report(
+                    #     model_directory=model_directory,
+                    #     model_metadata=academic_metadata,
+                    #     training_results=academic_training_results,
+                    #     hyperopt_results=academic_hyperopt_results,
+                    #     data_validation_results=validation_results
+                    # )
+                    academic_report_path = self.academic_report_generator.generate_academic_report(model_directory)
+
                     if academic_report_path:
                         logger.info(f"Academic report generated: {academic_report_path}")
                     
@@ -985,6 +1003,14 @@ class TrainingEngine:
                 
                 # Create ZIP archive of the model directory
                 zip_path = self._create_model_archive(model_directory, model_id)
+            
+            # Set default paths for missing variables (in case report generation failed or save_model=False)
+            if 'model_directory' not in locals() or model_directory is None:
+                model_directory = self.models_dir / model_id
+            if 'html_report_path' not in locals():
+                html_report_path = model_directory / "reports" / "training_report.html"
+            if 'zip_path' not in locals():
+                zip_path = model_directory / f"{model_id}_archive.zip"
             
             # Calculate training time
             training_time = (datetime.now() - start_time).total_seconds()
@@ -1005,7 +1031,7 @@ class TrainingEngine:
                 'target_names': target_column,
                 'best_hyperparameters': optimized_params or base_params,
                 'feature_importance': feature_importance,
-                'performance_summary': self._generate_performance_summary(cv_results, final_task_type, scoring_metric),
+                'performance_summary': self._generate_performance_summary(enhanced_cv_results, final_task_type, scoring_metric),
                 # "html_report_path": f"{base_url}/static/{Path(html_report_path).relative_to(self.models_dir.parent).as_posix()}",
                 "trained_report_summary":f"You can find the html trained report summary in {base_url}/static/{Path(html_report_path).relative_to(self.models_dir).as_posix()}",
                 "trained_details":f"""All detailed training data are saved in {base_url}/download/file/{Path(zip_path).relative_to(self.models_dir.parent).as_posix()},
@@ -1028,11 +1054,11 @@ class TrainingEngine:
             logger.error(f"Training failed: {str(e)}")
             raise
     
-    def train_classification_forest(
+    def train_xgboost_classification(
         self,
         data_source: Union[str, pd.DataFrame],
         target_column: Optional[str] = None,
-        model_name: Optional[str] = None,
+        model_id: Optional[str] = None,
         optimize_hyperparameters: bool = True,
         n_trials: int = 50,
         cv_folds: int = 5,
@@ -1040,11 +1066,15 @@ class TrainingEngine:
         scoring_metric: str = "f1_weighted",
         validate_data: bool = True,
         save_model: bool = True,
+        apply_preprocessing: bool = True,
+        scaling_method: str = "standard",
         task_type: str = None,
+        enable_gpu: bool = True,
+        device: str = "auto",
         **model_params
     ) -> Dict[str, Any]:
         """
-        Train a random forest classification model.
+        Train a XGBoost classification model.
         ...
         """
         user_task_type = task_type or model_params.get('task_type', None)
@@ -1055,11 +1085,12 @@ class TrainingEngine:
         
         # Remove task_type from model_params to avoid duplication
         model_params_clean = {k: v for k, v in model_params.items() if k != 'task_type'}
+
         
-        return self.train_random_forest(
+        return self.train_xgboost(
             data_source=data_source,
             target_column=target_column,
-            model_name=model_name,
+            model_id=model_id,
             optimize_hyperparameters=optimize_hyperparameters,
             n_trials=n_trials,
             cv_folds=cv_folds,
@@ -1067,16 +1098,19 @@ class TrainingEngine:
             scoring_metric=scoring_metric,
             validate_data=validate_data,
             save_model=save_model,
-            apply_preprocessing=True,
+            apply_preprocessing=apply_preprocessing,
+            scaling_method=scaling_method,
             task_type=final_task_type,
+            enable_gpu=enable_gpu,
+            device=device,
             **model_params_clean
         )
 
-    def train_regression_forest(
+    def train_xgboost_regression(
         self,
         data_source: Union[str, pd.DataFrame],
         target_column: Optional[str] = None,
-        model_name: Optional[str] = None,
+        model_id: Optional[str] = None,
         optimize_hyperparameters: bool = True,
         n_trials: int = 100,
         cv_folds: int = 5,
@@ -1088,7 +1122,7 @@ class TrainingEngine:
         **model_params
     ) -> Dict[str, Any]:
         """
-        Train a random forest regression model.
+        Train a XGBoost regression model.
         ...
         """
         user_task_type = task_type or model_params.get('task_type', None)
@@ -1100,10 +1134,10 @@ class TrainingEngine:
         # Remove task_type from model_params to avoid duplication
         model_params_clean = {k: v for k, v in model_params.items() if k != 'task_type'}
         
-        return self.train_random_forest(
+        return self.train_xgboost(
             data_source=data_source,
             target_column=target_column,
-            model_name=model_name,
+            model_id=model_id,
             optimize_hyperparameters=optimize_hyperparameters,
             n_trials=n_trials,
             cv_folds=cv_folds,

@@ -1,7 +1,7 @@
 """
 Advanced Performance Analysis Module
 
-This module provides comprehensive performance analysis capabilities for Random Forest models:
+This module provides comprehensive performance analysis capabilities for XGBoost models:
 - Model prediction performance benchmarking
 - Training performance analysis
 - Cross-validation performance tracking
@@ -243,7 +243,7 @@ class PerformanceAnalyzer:
         Returns:
             Training performance result
         """
-        from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+        import xgboost as xgb
         from sklearn.model_selection import cross_val_score
         
         dataset_size = len(X_train)
@@ -255,10 +255,10 @@ class PerformanceAnalyzer:
         is_classification = unique_targets < 20 and np.all(y_train == y_train.astype(int))
         
         if is_classification:
-            model_class = RandomForestClassifier
+            model_class = xgb.XGBClassifier
             scoring = 'accuracy'
         else:
-            model_class = RandomForestRegressor
+            model_class = xgb.XGBRegressor
             scoring = 'r2'
         
         # Measure training performance

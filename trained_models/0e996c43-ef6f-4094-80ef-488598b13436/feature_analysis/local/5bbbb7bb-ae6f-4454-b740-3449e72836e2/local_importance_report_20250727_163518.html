@@ -1,0 +1,236 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Local Feature Importance Analysis Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { background-color: #f0f0f0; padding: 20px; border-radius: 5px; }
+                .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+                .metric { display: inline-block; margin: 10px; padding: 10px; background-color: #e8f4fd; border-radius: 3px; }
+                table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                .plot { text-align: center; margin: 20px 0; }
+                .plot img { max-width: 100%; height: auto; }
+                .positive { color: #d32f2f; }
+                .negative { color: #1976d2; }
+                .sample-header { background-color: #e3f2fd; padding: 10px; margin: 15px 0; border-radius: 3px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Local Feature Importance Analysis Report</h1>
+                <p>Generated on: 2025-07-27 16:35:18</p>
+                <p>Analysis Type: Single Sample Analysis</p>
+            </div>
+        
+            <div class="section">
+                <h2>Single Sample Analysis</h2>
+                
+                <div class="metric">Sample Index: 0</div>
+                <div class="metric">Expected Value: 0.0000</div>
+                <div class="metric">Prediction: 1.3956</div>
+                <div class="metric" style="background-color: #fff3e0; border: 2px solid #ff9800;">
+                    <strong>Prediction (Original Scale): 5.4547</strong>
+                </div>
+                <div class="metric">Features Analyzed: 4</div>
+                
+                <h3>Feature Contributions (SHAP Values)</h3>
+                <table>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Feature</th>
+                        <th>Feature Value</th>
+                        <th>SHAP Value</th>
+                        <th>Impact</th>
+                    </tr>
+            
+                    <tr>
+                        <td>1</td>
+                        <td>SiO2</td>
+                        <td>36.0000</td>
+                        <td class="positive">+1.0100</td>
+                        <td class="positive">Increases</td>
+                    </tr>
+                
+                    <tr>
+                        <td>2</td>
+                        <td>Lignin</td>
+                        <td>1.9000</td>
+                        <td class="positive">+0.2337</td>
+                        <td class="positive">Increases</td>
+                    </tr>
+                
+                    <tr>
+                        <td>3</td>
+                        <td>CeO2</td>
+                        <td>0.6000</td>
+                        <td class="positive">+0.1131</td>
+                        <td class="positive">Increases</td>
+                    </tr>
+                
+                    <tr>
+                        <td>4</td>
+                        <td>2-VN</td>
+                        <td>4.3000</td>
+                        <td class="positive">+0.0342</td>
+                        <td class="positive">Increases</td>
+                    </tr>
+                </table></div>
+        <div class="section">
+            <h2>📊 Local Feature Importance Visualizations</h2>
+            <p>The following charts demonstrate SHAP-based local feature importance analysis for specific samples, revealing how each feature contributes to the model's prediction for those samples.</p>
+            
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #2196f3;">
+                <h4>🎯 Why SHAP Outputs Multiple Visualization Types</h4>
+                <p><strong>SHAP (SHapley Additive exPlanations)</strong> generates different types of visualizations because each type reveals different aspects of feature contributions:</p>
+                <ul>
+                    <li><strong>Waterfall Plot</strong>: Shows cumulative contribution path from baseline to final prediction</li>
+                    <li><strong>Force Plot</strong>: Displays push-pull effects of features in a horizontal layout</li>
+                    <li><strong>Decision Plot</strong>: Reveals feature interaction patterns and decision boundaries</li>
+                </ul>
+                <p><strong>For Classification Tasks</strong>: Each visualization considers how features contribute to predicting the <em>specific output class</em> for each sample, rather than all classes simultaneously. This provides precise, class-specific insights.</p>
+                <p><strong>Mathematical Foundation</strong>: Each plot represents the same Shapley decomposition: <code>f(x) = E[f(X)] + Σφᵢ</code>, but visualizes the additive contributions in different ways to reveal different patterns.</p>
+            </div>
+        
+            <div style="background-color: #fff3e0; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                <h4>🎯 Multi-Target Analysis</h4>
+                <p>This model has multiple output targets. Charts are generated separately for each target to show target-specific feature contributions.</p>
+            </div>
+            
+                <div style="border: 2px solid #2196f3; border-radius: 8px; margin: 20px 0; padding: 15px;">
+                    <h3 style="color: #2196f3; margin-top: 0;">🎯 Target: 0</h3>
+                
+                        <div class="plot">
+                            <h4>🌊 SHAP Waterfall Plot (Feature Contribution Accumulation) - Target: 0</h4>
+                            
+                <div style="background-color: #e8f4fd; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <h4>📖 Mathematical Foundation</h4>
+                    <p><strong>Mathematical Expression:</strong> f(x) = E[f(X)] + Σφᵢ</p>
+                    <ul>
+                        <li><strong>E[f(X)]</strong>: Expected value of the model on background dataset (baseline)</li>
+                        <li><strong>φᵢ</strong>: Shapley value contribution of feature i for this sample</li>
+                        <li><strong>f(x)</strong>: Final prediction value for this sample</li>
+                        <li><strong>Accumulation Principle</strong>: Starting from baseline, progressively adding each feature's contribution</li>
+                    </ul>
+                    
+                    <h4>🎨 Chart Interpretation</h4>
+                    <ul>
+                        <li><strong>Starting Point</strong>: E[f(X)] represents average prediction without any feature information</li>
+                        <li><strong>Positive Contributions</strong>: Red bars indicate features that increase the prediction</li>
+                        <li><strong>Negative Contributions</strong>: Blue bars indicate features that decrease the prediction</li>
+                        <li><strong>Final Prediction</strong>: Result after accumulating all contributions</li>
+                    </ul>
+                    
+                    <h4>🔍 Analytical Value</h4>
+                    <ul>
+                        <li><strong>Causal Chain</strong>: Visualizes complete reasoning path from baseline to prediction</li>
+                        <li><strong>Contribution Quantification</strong>: Shows precise numerical contribution of each feature</li>
+                        <li><strong>Decision Explanation</strong>: Provides clear logical explanation for model predictions</li>
+                        <li><strong>Anomaly Diagnosis</strong>: Identifies key features causing unusual predictions</li>
+                    </ul>
+                </div>
+                
+                            <div style="text-align: center; margin: 20px 0; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="waterfall_plot_sample_0_TS-AF_20250727_163517.png" alt="🌊 SHAP Waterfall Plot (Feature Contribution Accumulation) - Target: 0" style="max-width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart file: waterfall_plot_sample_0_TS-AF_20250727_163517.png
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="plot">
+                            <h4>⚡ SHAP Force Plot (Feature Force Visualization) - Target: 0</h4>
+                            
+                <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <h4>📖 Physics Analogy</h4>
+                    <p><strong>Force Model:</strong> Prediction = Baseline + Σ(Feature Force × Direction)</p>
+                    <ul>
+                        <li><strong>Baseline</strong>: System equilibrium point (no external forces)</li>
+                        <li><strong>Push Features</strong>: Positive SHAP values, pushing prediction rightward (increase)</li>
+                        <li><strong>Pull Features</strong>: Negative SHAP values, pulling prediction leftward (decrease)</li>
+                        <li><strong>Force Balance</strong>: Vector sum of all forces determines final prediction position</li>
+                    </ul>
+                    
+                    <h4>🎨 Chart Elements</h4>
+                    <ul>
+                        <li><strong>Arrow Direction</strong>: Points toward prediction increase (→) or decrease (←)</li>
+                        <li><strong>Arrow Length</strong>: Absolute magnitude of SHAP value, indicating force strength</li>
+                        <li><strong>Color Coding</strong>: Red = positive contribution, Blue = negative contribution</li>
+                        <li><strong>Feature Values</strong>: Actual feature values displayed on arrows</li>
+                    </ul>
+                    
+                    <h4>🎯 Use Cases</h4>
+                    <ul>
+                        <li><strong>Intuitive Explanation</strong>: Visualization format understandable by non-technical users</li>
+                        <li><strong>Key Feature Identification</strong>: Quickly find features with greatest impact</li>
+                        <li><strong>Feature Interactions</strong>: Observe cooperative/opposing effects between features</li>
+                        <li><strong>Model Debugging</strong>: Discover unreasonable feature dependencies</li>
+                    </ul>
+                </div>
+                
+                            <div style="text-align: center; margin: 20px 0; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="force_plot_sample_0_TS-AF_20250727_163517.png" alt="⚡ SHAP Force Plot (Feature Force Visualization) - Target: 0" style="max-width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart file: force_plot_sample_0_TS-AF_20250727_163517.png
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="plot">
+                            <h4>🎯 SHAP Decision Plot (Sample Reasoning Path) - Target: 0</h4>
+                            
+                <div style="background-color: #f3e5f5; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <h4>📖 Decision Tree Analogy</h4>
+                    <p><strong>Cumulative Decision Process:</strong> Starting from expected value, making sequential feature-based adjustments</p>
+                    <ul>
+                        <li><strong>Y-axis</strong>: Feature list, sorted by importance</li>
+                        <li><strong>X-axis</strong>: Model output value (prediction result)</li>
+                        <li><strong>Decision Path</strong>: Trajectory from baseline to final prediction</li>
+                        <li><strong>Nodes</strong>: Decision points for each feature</li>
+                    </ul>
+                    
+                    <h4>🔬 Mathematical Expression</h4>
+                    <p><strong>Recurrence Formula:</strong> Outputᵢ = Outputᵢ₋₁ + φᵢ</p>
+                    <ul>
+                        <li><strong>Output₀</strong>: E[f(X)], expected value (starting point)</li>
+                        <li><strong>φᵢ</strong>: Marginal contribution of the i-th feature</li>
+                        <li><strong>Output_final</strong>: f(x), final prediction value</li>
+                        <li><strong>Trajectory Line</strong>: Path connecting all decision points</li>
+                    </ul>
+                    
+                    <h4>📈 Chart Advantages</h4>
+                    <ul>
+                        <li><strong>Sequential Impact</strong>: Shows cumulative effect of features in order of importance</li>
+                        <li><strong>Marginal Effects</strong>: Decision adjustment magnitude at each step</li>
+                        <li><strong>Decision Trajectory</strong>: Complete reasoning visualization</li>
+                        <li><strong>Anomaly Detection</strong>: Identifies abnormally large single-step adjustments</li>
+                    </ul>
+                    
+                    <h4>🔍 Multi-Sample Comparison (when applicable)</h4>
+                    <p>When multiple samples are analyzed simultaneously:</p>
+                    <ul>
+                        <li><strong>Common Starting Point</strong>: All samples begin from the same expected value</li>
+                        <li><strong>Parallel Trajectories</strong>: Each sample has independent decision path</li>
+                        <li><strong>Divergence Points</strong>: Where different samples diverge on certain features</li>
+                        <li><strong>Endpoint Differences</strong>: Source of final prediction differences</li>
+                    </ul>
+                    
+                    <h4>💡 Analytical Insights</h4>
+                    <ul>
+                        <li><strong>Model Consistency</strong>: Verify reasoning consistency across different samples</li>
+                        <li><strong>Feature Stability</strong>: Identify features performing consistently across scenarios</li>
+                        <li><strong>Group Patterns</strong>: Discover sample clusters and their feature patterns</li>
+                        <li><strong>Business Analysis</strong>: Understand decision logic for different customers/situations</li>
+                    </ul>
+                </div>
+                
+                            <div style="text-align: center; margin: 20px 0; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="decision_plot_samples_0_TS-AF_20250727_163518.png" alt="🎯 SHAP Decision Plot (Sample Reasoning Path) - Target: 0" style="max-width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart file: decision_plot_samples_0_TS-AF_20250727_163518.png
+                                </p>
+                            </div>
+                        </div>
+                        </div></div></body></html>

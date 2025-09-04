@@ -31,7 +31,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from mcp.server import Server
 # 导入我们的MCP服务器
-from src.mcp_rf_tool.mcp_server import mcp
+from src.mcp_xgboost_tool.mcp_server import mcp
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -90,7 +90,7 @@ def create_fastapi_app(mcp_server: Server, *, debug: bool = False) -> FastAPI:
     async def root():
         """根端点，显示服务器信息"""
         return {
-            "message": "MCP Random Forest Server with CORS enabled",
+            "message": "MCP XGBoost Server with CORS enabled",
             "server": "FastAPI",
             "cors_enabled": True,
             "endpoints": {

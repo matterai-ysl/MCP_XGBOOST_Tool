@@ -3,7 +3,7 @@
 Hyperparameter Optimization Module
 
 This module provides hyperparameter optimization functionality using Optuna
-for Random Forest models, supporting TPE and GP algorithms.
+for XGBoost models, supporting TPE and GP algorithms.
 """
 
 import logging
@@ -12,18 +12,18 @@ from typing import Dict, Any, List, Optional, Union, Callable, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import cross_val_score, StratifiedKFold, KFold
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from xgboost import XGBClassifier, XGBRegressor
 import optuna
 from optuna.samplers import TPESampler
 import warnings
 
-from .random_forest import RandomForestWrapper
+from .xgboost_wrapper import XGBoostWrapper
 
 logger = logging.getLogger(__name__)
 
 class HyperparameterOptimizer:
     """
-    Hyperparameter optimization for Random Forest models using Optuna.
+    Hyperparameter optimization for XGBoost models using Optuna.
     Based on simplified and robust design from reference implementations.
     """
     
@@ -31,13 +31,16 @@ class HyperparameterOptimizer:
                  sampler_type: str = "TPE",
                  n_trials: int = 50,
                  cv_folds: int = 5,
-                 random_state: Optional[int] = 42):
-        """Initialize HyperparameterOptimizer."""
+                 random_state: Optional[int] = 42,
+                 enable_gpu: bool = True,
+                 device: str = "auto"):
+        """Initialize HyperparameterOptimizer with GPU support."""
         self.sampler_type = sampler_type.upper()
         self.n_trials = n_trials
         self.cv_folds = cv_folds
         self.random_state = random_state
-        
+        self.enable_gpu = enable_gpu
+        self.device = device        
         # Optimization state
         self.study = None
         self.best_params = None
@@ -73,14 +76,18 @@ class HyperparameterOptimizer:
             return TPESampler(seed=self.random_state)
             
     def _suggest_hyperparameters(self, trial) -> Dict[str, Any]:
-        """Suggest hyperparameters for Random Forest optimization."""
+        """Suggest hyperparameters for XGBoost optimization."""
         params = {
-            'n_estimators': trial.suggest_int('n_estimators', 50, 300, step=25),
-            'max_depth': trial.suggest_int('max_depth', 3, 20),
-            'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
-            'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
-            'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', 0.5, 0.7, 1.0]),
-            'bootstrap': trial.suggest_categorical('bootstrap', [True, False]),
+            'n_estimators': trial.suggest_int('n_estimators', 50, 150, step=10),
+            'max_depth': trial.suggest_int('max_depth', 1, 10),
+            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+            'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+            'colsample_bylevel': trial.suggest_float('colsample_bylevel', 0.6, 1.0),
+            'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 10.0, log=True),
+            'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 10.0, log=True),
+            'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+            'gamma': trial.suggest_float('gamma', 1e-8, 10.0, log=True),
             'random_state': self.random_state
         }
         return params
@@ -109,11 +116,42 @@ class HyperparameterOptimizer:
                 # Get suggested hyperparameters
                 params = self._suggest_hyperparameters(trial)
                 
-                # Create sklearn model
-                if task_type == "classification":
-                    model = RandomForestClassifier(**params, n_jobs=1)
+                # Add GPU support parameters
+                gpu_params = {}
+                if self.enable_gpu and self.device in ["auto", "cuda", "gpu"]:
+                    # Try to use GPU if available  
+                    try:
+                        # Test GPU availability by creating a simple wrapper
+                        from .xgboost_wrapper import XGBoostWrapper
+                        test_wrapper = XGBoostWrapper(enable_gpu=True, device=self.device)
+                        if test_wrapper.gpu_available:
+                            gpu_params.update({
+                                'tree_method': 'hist',
+                                'device': 'cuda'
+                            })
+                        else:
+                            gpu_params.update({
+                                'tree_method': 'hist',
+                                'device': 'cpu'
+                            })
+                    except Exception:
+                        # Fall back to CPU if GPU setup fails
+                        gpu_params.update({
+                            'tree_method': 'hist',
+                            'device': 'cpu'
+                        })
                 else:
-                    model = RandomForestRegressor(**params, n_jobs=1)
+                    gpu_params.update({
+                        'tree_method': 'hist',
+                        'device': 'cpu'
+                    })
+                
+                # Create XGBoost model with GPU support
+                final_params = {**params, **gpu_params, 'n_jobs': 1, 'verbosity': 0}
+                if task_type == "classification":
+                    model = XGBClassifier(**final_params)
+                else:
+                    model = XGBRegressor(**final_params)
                 
                 # Perform cross-validation
                 with warnings.catch_warnings():
@@ -192,8 +230,8 @@ class HyperparameterOptimizer:
             
         # Auto-detect task type if not provided
         if task_type is None:
-            rf_temp = RandomForestWrapper()
-            task_type = rf_temp._detect_task_type(y)
+            xgb_temp = XGBoostWrapper()
+            task_type = xgb_temp._detect_task_type(y)
             
         self.task_type = task_type
         
@@ -298,21 +336,23 @@ class HyperparameterOptimizer:
                 
         return results
         
-    def create_optimized_model(self) -> RandomForestWrapper:
-        """Create RandomForestWrapper with optimized hyperparameters."""
+    def create_optimized_model(self) -> XGBoostWrapper:
+        """Create XGBoostWrapper with optimized hyperparameters."""
         if self.best_params is None:
             raise ValueError("No optimization results available. Run optimize() first.")
             
-        # Create model with optimized parameters
-        optimized_params = self.best_params.copy()
-        optimized_params['n_jobs'] = -1  # Enable parallel processing
+        # Create a new XGBoostWrapper with the best found parameters
+        optimized_params = self.study.best_params.copy()
         
-        rf_optimized = RandomForestWrapper(
-            task_type=self.task_type,
-            **optimized_params
-        )
+        # Add GPU/device settings back in if they were used
+        if self.enable_gpu is not None:
+            optimized_params['enable_gpu'] = self.enable_gpu
+        if self.device is not None:
+            optimized_params['device'] = self.device
+
+        xgb_model = XGBoostWrapper(task_type=self.task_type, **optimized_params)
         
-        return rf_optimized 
+        return xgb_model
 
 
 def optimizer_optuna(n_trials: int, algo: str, data: Dict[str, Any]) -> Tuple[Dict[str, Any], float]:

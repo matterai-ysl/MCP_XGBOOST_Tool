@@ -1,9 +1,9 @@
 """
-MCP Server for Random Forest Regression Tool
+MCP Server for XGBoost Machine Learning Tool
 
 This module implements the MCP server using FastMCP and provides 8 core tool functions:
-1. train_random_forest - Multi-target regression model training with comprehensive scoring metrics
-2. train_classification_forest - Classification model training  
+1. train_xgboost_regressor - XGBoost regression model training with comprehensive scoring metrics
+2. train_xgboost_classifier - XGBoost classification model training  
 3. predict_from_file - Batch prediction from file
 4. predict_from_values - Real-time prediction from values
 5. analyze_feature_importance - Feature importance analysis
@@ -42,13 +42,13 @@ logger = logging.getLogger(__name__)
 
 # Initialize MCP server with detailed instructions
 mcp = FastMCP(
-    name="Random Forest Regression Tool",
+    name="XGBoost Machine Learning Tool",
     instructions="""
-    This is a comprehensive Machine Learning server providing Random Forest regression capabilities.
+    This is a comprehensive Machine Learning server providing advanced XGBoost capabilities.
     
     Available tools:
-    1. train_random_forest - Train a Random Forest regression model (supports multi-target regression)
-    2. train_classification_forest - Train a classification Random Forest model
+    1. train_xgboost_regressor - Train an XGBoost regression model with advanced features
+    2. train_xgboost_classifier - Train an XGBoost classifier for classification tasks
     3. predict_from_file - Make batch predictions from a data file
     4. predict_from_values - Make real-time predictions from feature values
     5. analyze_feature_importance - Analyze feature importance of a trained model
@@ -57,7 +57,8 @@ mcp = FastMCP(
     8. delete_model - Delete a trained model
     
     Use these tools to build complete ML workflows from training to deployment.
-    The main train_random_forest function now supports multi-target regression with various scoring metrics.
+    The train_xgboost_regressor function supports multi-target regression, GPU acceleration, early stopping, 
+    hyperparameter optimization, and XGBoost-specific evaluation metrics.
     """
 )
 
@@ -73,7 +74,7 @@ base_url = "http://localhost:8080"
 #     return PlainTextResponse(f"Hello, {name}!")
 
 @mcp.tool()
-async def train_random_forest(
+async def train_xgboost_regressor(
     data_source: str,
     target_dimension: int = 1,
     optimize_hyperparameters: bool = True,
@@ -83,10 +84,13 @@ async def train_random_forest(
     validate_data: bool = True,
     save_model: bool = True,
     apply_preprocessing: bool = True,
-    scaling_method: str = "standard"
+    scaling_method: str = "standard",
+    enable_gpu: bool = True,
+    device: str = "auto",
+    **xgboost_params
 ) -> Dict[str, Any]:
     """
-    Train a Random Forest regression model supporting multi-target regression.
+    Train an XGBoost regression model with multi-target support and advanced features.
     
     Args:
         data_source: Path to training data file (CSV, Excel, etc.)
@@ -95,8 +99,8 @@ async def train_random_forest(
         n_trials: Number of optimization trials
         cv_folds: Number of cross-validation folds
         scoring_metric: Scoring metric for regression optimization. Supported metrics:
-                       - 'MSE' (default): Mean Squared Error
-                       - 'MAE': Mean Absolute Error
+                       - 'MSE': Mean Squared Error
+                       - 'MAE': Mean Absolute Error (default)
                        - 'RMSE': Root Mean Squared Error
                        - 'R2': R-squared score
                        - 'MAPE': Mean Absolute Percentage Error
@@ -107,13 +111,17 @@ async def train_random_forest(
         save_model: Whether to save the trained model
         apply_preprocessing: Whether to apply data preprocessing
         scaling_method: Scaling method ('standard', 'minmax', 'robust', 'quantile', 'power')
+        enable_gpu: Whether to enable GPU training if available
+        device: Device to use ("auto", "cpu", "cuda", "gpu")
+        **xgboost_params: Additional XGBoost parameters (learning_rate, max_depth, etc.)
         
     Returns:
-        Training results including model performance and metadata
+        Training results including model performance, metadata, and XGBoost-specific information
     """
     try:
-        logger.info(f"Training Random Forest regression model from: {data_source}")
+        logger.info(f"Training XGBoost regression model from: {data_source}")
 
+        # Convert scoring metric to sklearn format
         if scoring_metric == 'MSE':
             scoring_metric = 'neg_mean_squared_error'
         elif scoring_metric == 'MAE':
@@ -133,8 +141,6 @@ async def train_random_forest(
         else:
             raise ValueError(f"Invalid scoring metric: {scoring_metric}. Supported metrics: MSE, MAE, RMSE, R2, MAPE, explained_variance, max_error, MAD")
 
-
-        
         # Load and validate data for multi-target regression
         from .data_utils import DataProcessor
         data_processor = DataProcessor()
@@ -150,17 +156,17 @@ async def train_random_forest(
         # Get target columns (last N columns based on target_dimension)
         target_columns = df.columns[-target_dimension:].tolist()
         
-        logger.info(f"Multi-target regression with {target_dimension} target(s): {target_columns}")
+        logger.info(f"XGBoost multi-target regression with {target_dimension} target(s): {target_columns}")
         
         model_id = str(uuid.uuid4())
         
         # Run training in executor to avoid blocking
         result = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: training_engine.train_random_forest(
+            lambda: training_engine.train_xgboost(
                 data_source=data_source,
                 target_column=target_columns if target_dimension > 1 else target_columns[0],
-                model_name= model_id,
+                model_id=model_id,
                 optimize_hyperparameters=optimize_hyperparameters,
                 n_trials=n_trials,
                 cv_folds=cv_folds,
@@ -168,85 +174,122 @@ async def train_random_forest(
                 validate_data=validate_data,
                 save_model=save_model,
                 apply_preprocessing=apply_preprocessing,
-                scaling_method=scaling_method
+                scaling_method=scaling_method,
+                task_type="regression",
+                enable_gpu=enable_gpu,
+                device=device,
+                **xgboost_params
             )
         )
         
-        logger.info("Random Forest regression training completed successfully")
+        logger.info("XGBoost regression training completed successfully")
         return result
         
     except Exception as e:
-        error_msg = f"Regression training failed: {str(e)}"
+        error_msg = f"XGBoost regression training failed: {str(e)}"
         logger.error(error_msg)
         logger.error(traceback.format_exc())
         return {"error": error_msg, "traceback": traceback.format_exc()}
 
 @mcp.tool()
-async def train_classification_forest(
+async def train_xgboost_classifier(
     data_source: str,
-    target_dimension: int = -1,
+    target_dimension: int = 1,
     optimize_hyperparameters: bool = True,
     n_trials: int = 50,
     cv_folds: int = 5,
     scoring_metric: str = "f1_weighted",
+    apply_preprocessing: bool = True,
+    scaling_method: str = "standard",
     validate_data: bool = True,
-    save_model: bool = True
+    save_model: bool = True,
+    enable_gpu: bool = True,
+    device: str = "auto",
+    **xgboost_params
 ) -> Dict[str, Any]:
     """
-    Train a Random Forest classification model.
+    Train an XGBoost classifier for classification tasks (supports multi-class).
     
     Args:
         data_source: Path to training data file (CSV, Excel, etc.)
-        target_dimension: Index of target column (default: -1 for last column)
+        target_dimension: Number of target columns for classification (positive integer, usually 1)
         optimize_hyperparameters: Whether to run hyperparameter optimization
         n_trials: Number of optimization trials
         cv_folds: Number of cross-validation folds
-        scoring_metric: Scoring metric for optimization (default: f1_weighted)
+        scoring_metric: Scoring metric for classification optimization (default: f1_weighted)
+        apply_preprocessing: Whether to apply data preprocessing
+        scaling_method: Scaling method ('standard', 'minmax', 'robust', 'quantile', 'power')
         validate_data: Whether to validate data quality
         save_model: Whether to save the trained model
+        enable_gpu: Whether to enable GPU training if available
+        device: Device to use ("auto", "cpu", "cuda", "gpu")
+        **xgboost_params: Additional XGBoost parameters (learning_rate, max_depth, etc.)
         
     Returns:
-        Training results including model performance and metadata
+        Training results including model performance, metadata, and XGBoost-specific information
     """
     try:
-        logger.info(f"Training Classification Random Forest from: {data_source}")
+        logger.info(f"Training XGBoost classifier from: {data_source}")
+
+        # Convert scoring metric to sklearn format
+        if scoring_metric == 'accuracy':
+            scoring_metric = 'accuracy'
+        elif scoring_metric == 'f1_weighted':
+            scoring_metric = 'f1_weighted'
+        elif scoring_metric == 'f1':
+            scoring_metric = 'f1'
+        elif scoring_metric == 'precision':
+            scoring_metric = 'precision_weighted'
+        elif scoring_metric == 'recall':
+            scoring_metric = 'recall_weighted'
+        # 可根据需要扩展更多分类指标
+        # 其它字符串直接传递
+
         
-        # Convert target_dimension to target_column for internal processing
+        # Load and validate data for classification
         from .data_utils import DataProcessor
         data_processor = DataProcessor()
         df = data_processor.load_data(data_source)
         
-        # Get target column name from dimension
-        if target_dimension == -1:
-            target_column = df.columns[-1]
-        else:
-            if target_dimension >= len(df.columns) or target_dimension < 0:
-                raise ValueError(f"Target dimension {target_dimension} is out of range. Data has {len(df.columns)} columns.")
-            target_column = df.columns[target_dimension]
+        # Validate target_dimension parameter
+        if target_dimension <= 0:
+            raise ValueError(f"Target dimension must be a positive integer, got: {target_dimension}")
         
-        model_name = str(uuid.uuid4())
+        if target_dimension > len(df.columns):
+            raise ValueError(f"Target dimension {target_dimension} exceeds number of columns {len(df.columns)}")
+        
+        # Get target columns (last N columns based on target_dimension)
+        target_columns = df.columns[-target_dimension:].tolist()
+        logger.info(f"XGBoost classification with {target_dimension} target(s): {target_columns}")
+        
+        model_id = str(uuid.uuid4())
         
         # Run training in executor to avoid blocking
         result = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: training_engine.train_classification_forest(
+            lambda: training_engine.train_xgboost_classification(
                 data_source=data_source,
-                target_column=target_column,
-                model_name=model_name,
+                target_column=target_columns if target_dimension > 1 else target_columns[0],
+                model_id=model_id,
                 optimize_hyperparameters=optimize_hyperparameters,
                 n_trials=n_trials,
                 cv_folds=cv_folds,
                 scoring_metric=scoring_metric,
+                apply_preprocessing=apply_preprocessing,
+                scaling_method=scaling_method,
                 validate_data=validate_data,
-                save_model=save_model
+                save_model=save_model,
+                task_type="classification",
+                enable_gpu=enable_gpu,
+                device=device
             )
         )
         
-        logger.info("Classification Random Forest training completed successfully")
+        logger.info("XGBoost classification training completed successfully")
         return result
         
     except Exception as e:
-        error_msg = f"Classification training failed: {str(e)}"
+        error_msg = f"XGBoost classification training failed: {str(e)}"
         logger.error(error_msg)
         logger.error(traceback.format_exc())
         return {"error": error_msg, "traceback": traceback.format_exc()}
@@ -419,6 +462,7 @@ async def analyze_global_feature_importance(
             
             # Get target column information from model metadata
             target_column = model_info.get('target_column')
+            print("target_column",target_column)
             if not target_column:
                 target_name = model_info.get('target_name', [])
                 if target_name:
@@ -430,19 +474,30 @@ async def analyze_global_feature_importance(
             
             # Separate features and target
             # Handle both single target column and multi-target cases
-            if isinstance(target_column, list):
-                # Multi-target case - use first target for feature importance analysis
-                target_col = target_column[0]
-                logger.info(f"Multi-target model detected, using first target for analysis: {target_col}")
-            else:
-                target_col = target_column
+            is_multi_target = isinstance(target_column, list)
             
-            if target_col in df.columns:
-                X_raw = df.drop(columns=[target_col])
-                y_raw = df[target_col].values
-                logger.info(f"Data loaded - Features shape: {X_raw.shape}, Target shape: {y_raw.shape}")
+            if is_multi_target:
+                # Multi-target case - analyze all targets
+                target_cols = target_column
+                logger.info(f"Multi-target model detected, analyzing all targets: {target_cols}")
+                
+                # Check that all target columns exist
+                missing_cols = [col for col in target_cols if col not in df.columns]
+                if missing_cols:
+                    raise ValueError(f"Target columns {missing_cols} not found in data. Available columns: {list(df.columns)}")
+                
+                X_raw = df.drop(columns=target_cols)
+                y_raw = df[target_cols].values  # Multi-target array
+                logger.info(f"Data loaded - Features shape: {X_raw.shape}, Multi-target shape: {y_raw.shape}")
             else:
-                raise ValueError(f"Target column '{target_col}' not found in data. Available columns: {list(df.columns)}")
+                # Single target case
+                target_col = target_column
+                if target_col in df.columns:
+                    X_raw = df.drop(columns=[target_col])
+                    y_raw = df[target_col].values
+                    logger.info(f"Data loaded - Features shape: {X_raw.shape}, Target shape: {y_raw.shape}")
+                else:
+                    raise ValueError(f"Target column '{target_col}' not found in data. Available columns: {list(df.columns)}")
             
             # Apply preprocessing if needed
             if use_preprocessing:
@@ -507,65 +562,151 @@ async def analyze_global_feature_importance(
             
             # Initialize analyzer with correct output directory
             from .feature_importance import FeatureImportanceAnalyzer
-            analyzer = FeatureImportanceAnalyzer(str(output_dir))
             
             results = {}
             
-            # Basic importance analysis
-            if "basic" in analysis_types:
-                logger.info("Performing basic feature importance analysis...")
-                try:
-                    results['basic_importance'] = analyzer.analyze_basic_importance(
-                        model, feature_names
-                    )
-                    logger.info("✓ Basic importance analysis completed successfully")
-                except Exception as e:
-                    logger.error(f"Basic importance analysis failed: {e}")
-                    results['basic_error'] = str(e)
-            
-            # Permutation importance analysis
-            if "permutation" in analysis_types:
-                logger.info("Performing permutation feature importance analysis...")
-                try:
-                    results['permutation_importance'] = analyzer.analyze_permutation_importance(
-                        model, X, y, feature_names
-                    )
-                    logger.info("✓ Permutation importance analysis completed successfully")
-                except Exception as e:
-                    logger.error(f"Permutation importance analysis failed: {e}")
-                    logger.error(f"Error details: {traceback.format_exc()}")
-                    results['permutation_error'] = str(e)
-            
-            # SHAP analysis (if available and requested)
-            if "shap" in analysis_types:
-                logger.info("Performing SHAP feature importance analysis...")
-                try:
-                    results['shap_importance'] = analyzer.analyze_shap_importance(
-                        model, X, feature_names
-                    )
-                    logger.info("✓ SHAP importance analysis completed successfully")
-                except Exception as e:
-                    logger.warning(f"SHAP analysis failed: {e}")
-                    results['shap_error'] = str(e)
+            # Function to perform analysis for a single target
+            # Perform analysis based on target type
+            if is_multi_target:
+                # Multi-target analysis - simplified SHAP-only approach
+                results['is_multi_target'] = True
+                results['target_names'] = target_cols
+                
+                # Only perform SHAP analysis for multi-target
+                if "shap" in analysis_types:
+                    logger.info("Performing simplified multi-target SHAP analysis...")
+                    
+                    from .feature_importance import FeatureImportanceAnalyzer
+                    analyzer = FeatureImportanceAnalyzer(str(output_dir))
+                    
+                    try:
+                        # Get SHAP values for all targets at once
+                        shap_results = analyzer.analyze_shap_importance(
+                            model, X, feature_names,model_id=model_id
+                        )
+                        
+                        # SHAP values shape: (n_samples, n_features, n_targets)
+                        # Average over samples (first dimension) to get feature importance per target
+                        shap_values = shap_results.get('shap_values')
+                        if shap_values is not None and hasattr(shap_values, 'shape') and len(shap_values.shape) == 3:
+                            # Average over samples dimension
+                            avg_shap_values = np.mean(np.abs(shap_values), axis=0)  # Shape: (n_features, n_targets)
+                            
+                            # Create simplified results
+                            importance_matrix = {}
+                            
+                            for target_idx, target_name in enumerate(target_cols):
+                                importance_matrix[target_name] = {}
+                                
+                                for feature_idx, feature_name in enumerate(feature_names):
+                                    shap_importance = round(float(avg_shap_values[feature_idx, target_idx]), 4)
+                                    # 直接使用特征名作为键，重要性值作为值
+                                    importance_matrix[target_name][feature_name] = shap_importance
+                            
+                            results['importance_matrix'] = importance_matrix
+                            results['analysis_method'] = "SHAP"  # 在这里强调分析方法
+                            results['shap_analysis_success'] = True
+                            
+                            logger.info(f"✓ Simplified multi-target SHAP analysis completed for {len(target_cols)} targets")
+                        else:
+                            logger.warning(f"Unexpected SHAP values shape: {shap_values.shape if hasattr(shap_values, 'shape') else 'No shape'}")
+                            results['shap_analysis_error'] = "Unexpected SHAP values format"
+                            
+                    except Exception as e:
+                        logger.error(f"Multi-target SHAP analysis failed: {e}")
+                        results['shap_analysis_error'] = str(e)
+                        
+                    main_analyzer = analyzer
+                else:
+                    logger.warning("Multi-target analysis requires SHAP analysis. Please include 'shap' in analysis_types.")
+                    results['error'] = "Multi-target analysis only supports SHAP analysis"
+                    main_analyzer = None
+                
+            else:
+                # Single target analysis
+                results['is_multi_target'] = False
+                
+                # Create analyzer for single target
+                analyzer = FeatureImportanceAnalyzer(str(output_dir))
+                
+                # Basic importance analysis
+                if "basic" in analysis_types:
+                    logger.info("Performing basic feature importance analysis...")
+                    try:
+                        results['basic_importance'] = analyzer.analyze_basic_importance(
+                            model, feature_names
+                        )
+                        logger.info("✓ Basic importance analysis completed successfully")
+                    except Exception as e:
+                        logger.error(f"Basic importance analysis failed: {e}")
+                        results['basic_error'] = str(e)
+                
+                # Permutation importance analysis
+                if "permutation" in analysis_types and y is not None:
+                    logger.info("Performing permutation feature importance analysis...")
+                    try:
+                        results['permutation_importance'] = analyzer.analyze_permutation_importance(
+                            model, X, y, feature_names
+                        )
+                        logger.info("✓ Permutation importance analysis completed successfully")
+                    except Exception as e:
+                        logger.error(f"Permutation importance analysis failed: {e}")
+                        logger.error(f"Error details: {traceback.format_exc()}")
+                        results['permutation_error'] = str(e)
+                
+                # SHAP analysis
+                if "shap" in analysis_types:
+                    logger.info("Performing SHAP feature importance analysis...")
+                    try:
+                        results['shap_importance'] = analyzer.analyze_shap_importance(
+                            model, X, feature_names,model_id=model_id
+                        )
+                        logger.info("✓ SHAP importance analysis completed successfully")
+                    except Exception as e:
+                        logger.warning(f"SHAP analysis failed: {e}")
+                        results['shap_error'] = str(e)
+                
+                main_analyzer = analyzer
             
             # Generate visualizations
-            if generate_plots:
+            plot_paths = None
+            if generate_plots and main_analyzer:
                 logger.info("Generating feature importance plots...")
                 try:
-                    plot_paths = analyzer.create_visualization(save_plots=True)
-                    # results['plot_paths'] = plot_paths
-                    logger.info("✓ Visualizations generated successfully")
+                    if results.get('is_multi_target', False) and results.get('importance_matrix'):
+                        # Use specialized multi-target visualization
+                        plot_paths = main_analyzer.create_multi_target_visualizations(
+                            importance_matrix=results['importance_matrix'],
+                            save_plots=True
+                        )
+                        logger.info("✓ Multi-target visualizations generated successfully")
+                    else:
+                        # Use standard visualization for single target
+                        plot_paths = main_analyzer.create_visualization(save_plots=True)
+                        logger.info("✓ Single-target visualizations generated successfully")
                 except Exception as e:
                     logger.warning(f"Visualization generation failed: {e}")
                     results['visualization_error'] = str(e)
             
             # Generate report
-            if generate_report:
+            if generate_report and main_analyzer:
                 logger.info("Generating feature importance report...")
                 try:
-                    report_path = analyzer.generate_report(include_plots=generate_plots)
+                    if results.get('is_multi_target', False) and results.get('importance_matrix'):
+                        # Use specialized multi-target report generation
+                        report_path = main_analyzer.generate_multi_target_html_report(
+                            importance_matrix=results['importance_matrix'],
+                            plot_paths=plot_paths,
+                            analysis_method=results.get('analysis_method', 'SHAP'),
+                            include_plots=generate_plots
+                        )
+                        logger.info("✓ Multi-target HTML report generated successfully")
+                    else:
+                        # Use standard report generation for single target
+                        report_path = main_analyzer.generate_report(include_plots=generate_plots, format_type="html")
+                        logger.info("✓ Single-target HTML report generated successfully")
+                    
                     results['report_summary'] = f"You can find the html golbal feature importance report summary in {base_url}/static/{Path(report_path).relative_to(root_dir).as_posix()}"
-                    logger.info("✓ Report generated successfully")
                 except Exception as e:
                     logger.warning(f"Report generation failed: {e}")
                     results['report_error'] = str(e)
@@ -602,22 +743,53 @@ async def analyze_global_feature_importance(
                 'data_source': data_source if data_source else str(model_dir / "raw_data.csv"),
                 'feature_count': len(feature_names) if feature_names else 0,
                 'data_shape': f"{X.shape[0]} samples, {X.shape[1]} features" if X is not None else "Unknown",
+                'is_multi_target': results.get('is_multi_target', False)
             }
             
-            # 添加基础重要性分析结果
-            if "basic" in analysis_types and results.get('basic_importance'):
-                simplified_results['basic_importance_scores'] = results['basic_importance'].get('importance_scores', [])
-                logger.info("✓ Basic importance scores extracted")
-            
-            # 添加排列重要性分析结果  
-            if "permutation" in analysis_types and results.get('permutation_importance'):
-                simplified_results['permutation_importance_scores'] = results['permutation_importance'].get('importance_scores', [])
-                logger.info("✓ Permutation importance scores extracted")
-            
-            # 添加SHAP重要性分析结果
-            if "shap" in analysis_types and results.get('shap_importance'):
-                simplified_results['shap_importance_scores'] = results['shap_importance'].get('importance_scores', [])
-                logger.info("✓ SHAP importance scores extracted")
+            if results.get('is_multi_target', False):
+                # Multi-target results - simplified format
+                simplified_results['target_names'] = results.get('target_names', [])
+                
+                # Add simplified SHAP results directly
+                if results.get('importance_matrix'):
+                    simplified_results['importance_matrix'] = results.get('importance_matrix')
+                    logger.info("✓ Multi-target importance matrix included")
+                
+                if results.get('analysis_method'):
+                    simplified_results['analysis_method'] = results.get('analysis_method')
+                    logger.info(f"✓ Analysis method: {results.get('analysis_method')}")
+                
+
+                    
+                if results.get('shap_analysis_error'):
+                    simplified_results['shap_analysis_error'] = results['shap_analysis_error']
+                    logger.warning(f"Multi-target SHAP analysis error: {results['shap_analysis_error']}")
+                    
+                if results.get('error'):
+                    simplified_results['error'] = results['error']
+                    
+                # 移除analysis_types字段，用analysis_method替代
+                if "analysis_types" in simplified_results:
+                    del simplified_results["analysis_types"]
+                    
+                logger.info("✓ Multi-target simplified results processed")
+                
+            else:
+                # Single target results
+                # 添加基础重要性分析结果
+                if "basic" in analysis_types and results.get('basic_importance'):
+                    simplified_results['basic_importance_scores'] = results['basic_importance'].get('importance_scores', [])
+                    logger.info("✓ Basic importance scores extracted")
+                
+                # 添加排列重要性分析结果  
+                if "permutation" in analysis_types and results.get('permutation_importance'):
+                    simplified_results['permutation_importance_scores'] = results['permutation_importance'].get('importance_scores', [])
+                    logger.info("✓ Permutation importance scores extracted")
+                
+                # 添加SHAP重要性分析结果
+                if "shap" in analysis_types and results.get('shap_importance'):
+                    simplified_results['shap_importance_scores'] = results['shap_importance'].get('importance_scores', [])
+                    logger.info("✓ SHAP importance scores extracted")
             
             # 保留报告链接（如果存在）
             if 'report_summary' in results:
@@ -759,8 +931,7 @@ async def analyze_local_feature_importance(
     """
     try:
         logger.info(f"Analyzing local feature importance for model {model_id}")
-        print("--------------------------------") 
-        print(f"Analyzing local feature importance for model {model_id}")
+
         
         # Load model info first
         model_info = model_manager.get_model_info(model_id)
@@ -993,7 +1164,7 @@ async def analyze_local_feature_importance(
 
             # Run the analysis
             from .local_feature_importance import LocalFeatureImportanceAnalyzer
-            analyzer = LocalFeatureImportanceAnalyzer(output_dir=str(output_dir))
+            analyzer = LocalFeatureImportanceAnalyzer(model_metadata=model_info,output_dir=str(output_dir))
             
             # Pre-set target names if available in model metadata
             if model_info and 'target_name' in model_info:
@@ -1112,8 +1283,6 @@ async def analyze_local_feature_importance(
                     model_id=model_id
                 )
                 if archive_path:
-                    print("*"*100)
-                    print("archive_path",archive_path)
                     analysis_results['download_archive_path'] = f"You can download the local feature importance analysis details in {base_url}/download/file/{Path(archive_path).relative_to(root_dir.parent).as_posix()}"
                     # analysis_results['task_id'] = task_id
                     logger.info(f"Local analysis results archived: {archive_path}")
@@ -1152,6 +1321,8 @@ async def analyze_local_feature_importance(
             "traceback": full_traceback
         }
 
+
+
 def _create_analysis_archive(output_dir: Path, analysis_type: str, task_id: str, model_id: str) -> str:
 
     """创建分析结果的ZIP压缩包"""
@@ -1177,3 +1348,189 @@ def _create_analysis_archive(output_dir: Path, analysis_type: str, task_id: str,
     except Exception as e:
         logger.error(f"Failed to create analysis archive: {e}")
         return None
+
+async def test_train_xgboost_regressor():
+    """Test the train_xgboost_regressor function asynchronously."""
+    try:
+        data_source = r"D:\H-AF.xls"  # Use raw string to avoid escape issues
+        target_dimension = 1
+        optimize_hyperparameters = True
+        n_trials = 100
+ 
+        
+        result = await train_xgboost_regressor(
+            data_source=data_source,
+            target_dimension=target_dimension,
+            optimize_hyperparameters=optimize_hyperparameters,
+            n_trials=n_trials
+        )
+
+        return result
+    except Exception as e:
+        print(f"Training failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+async def test_train_xgboost_classifier():
+    """Test the train_xgboost_classifier function asynchronously."""
+    try:
+        data_source = "D:\鸢尾花多分类数据集.xlsx" 
+        # data_source = r"D:\泰坦尼克号.xlsx" # Use raw string to avoid escape issues
+        target_dimension = 1
+        optimize_hyperparameters = True
+        n_trials = 10
+        cv_folds = 5
+        scoring_metric = "f1_weighted"
+        validate_data = True
+        save_model = True
+        apply_preprocessing = True
+        scaling_method = "standard"
+        enable_gpu = True
+        device = "auto"
+
+        print("Starting XGBoost classifier training test...")
+        result = await train_xgboost_classifier(
+            data_source=data_source,
+            target_dimension=target_dimension,
+            optimize_hyperparameters=optimize_hyperparameters,
+            n_trials=n_trials,
+            cv_folds=cv_folds,
+            scoring_metric=scoring_metric,
+            validate_data=validate_data,
+            save_model=save_model,
+            apply_preprocessing=apply_preprocessing,
+            scaling_method=scaling_method,
+            enable_gpu=enable_gpu,
+            device=device
+        )
+        print("Training completed successfully!")
+    except Exception as e:
+        print(f"Training failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+async def test_predict_from_file():
+    """Test the predict_from_file function asynchronously."""
+    try:
+        model_id = "1ada0b3e-0271-4012-b53b-4a626786b08d"
+        data_source = r"D:\SLM预测.xls"
+        include_confidence = True
+        generate_report = True
+        
+        print("Starting prediction test...")
+        result = await predict_from_file(
+            model_id=model_id,
+            data_source=data_source,
+            include_confidence=include_confidence,
+            generate_report=generate_report
+        )
+        print("Prediction completed successfully!")
+    except Exception as e:
+        print(f"Prediction failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+async def test_predict_form_values():
+
+    try:
+        # TS-BE
+        #model_id = "9063132f-77f6-4bff-92d1-075c8280fd57"
+        # TS-AF
+        model_id = "69e194df-89e7-47d2-894c-6a9903138a81"
+        feature_values = [[36, 0.6, 1.9, 4.3],
+                          [28, 4.4, 3, 0.4],
+                          [18, 3.4, 4.6, 3.2],
+                          [15, 2.8, 4.8, 2.2],
+                          [10, 3.4, 5.4, 0.8]]
+
+
+        print("Starting prediction test...")
+        result = await predict_from_values(
+            model_id=model_id,
+            feature_values=feature_values
+        )
+        print("Prediction completed successfully!")
+    except Exception as e:
+        print(f"Prediction failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+async def test_global_feature_importance():
+    """Test the global_feature_importance function asynchronously."""
+    try:
+        # BE-BE
+        # model_id = "bb39af00-c7c4-43f4-b239-ce4d2627291d"
+        # BE-AF
+        #model_id = "9286c9d9-f6e7-4103-adff-238e5fa6f136"
+        # TS-BE
+        # model_id = "c4201b41-2ff9-48f9-87fb-ba8f6d2cfd12"
+        # TS-AF
+        # model_id = "0e996c43-ef6f-4094-80ef-488598b13436"
+        # H-BE
+        # model_id = "c2816c2b-0bfb-424b-90b6-7cf396ab0437"
+        # H-AF
+        model_id = "7b607a39-d746-4dc6-8eac-d21dbed2854a"
+        generate_report = True
+        analysis_types = ["basic","shap","permutation"]
+        print("Starting global feature importance test...")
+        result = await analyze_global_feature_importance(
+            model_id=model_id,
+            analysis_types=analysis_types,
+            generate_report=generate_report
+        )
+        print("Global feature importance test completed successfully!")
+        print(result)
+    except Exception as e:
+        print(f"Global feature importance test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+async def test_local_feature_importance():
+    """Test the local_feature_importance function asynchronously."""
+    try:
+        # model_id = "1ada0b3e-0271-4012-b53b-4a626786b08d"
+        # sample_data = [
+        #     [35, 80, 130, 800],
+        #     [20, 35, 110, 2100]
+        # ]
+        #sample_data = [35, 80, 130, 800]
+        # model_id = "e433427d-ae2c-4886-b9a9-7259ddb83888"
+        # sample_data = [
+        #     [5.1,3.5,1.4,0.2],
+        #     [4.9,3.0,1.4,0.2],
+        #     [4.7,3.2,1.3,0.2],
+        #     [4.6,3.1,1.5,0.2],
+        #     [5.0,3.6,1.4,0.2]
+        # ]
+        # sample_data = [5.1,3.5,1.4,0.2]
+
+        #回归测试
+        # TS-BE
+        # model_id = "9063132f-77f6-4bff-92d1-075c8280fd57"
+        # TS-AF
+        model_id = "0e996c43-ef6f-4094-80ef-488598b13436"
+        feature_values = [36, 0.6, 1.9, 4.3]
+
+
+        # sample_data = [35, 80, 130, 800]  
+        print("Starting local feature importance test...")
+        result = await analyze_local_feature_importance(
+            model_id=model_id,
+            sample_data=feature_values
+        )
+        print("Local feature importance test completed successfully!")
+    except Exception as e:
+        print(f"Local feature importance test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+if __name__ == "__main__":
+    import asyncio
+    #asyncio.run(test_train_xgboost_regressor())
+    asyncio.run(test_local_feature_importance())

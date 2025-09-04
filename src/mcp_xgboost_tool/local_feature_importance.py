@@ -29,7 +29,7 @@ except ImportError:
 
 # Check for sklearn
 try:
-    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+    import xgboost as xgb
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -44,7 +44,7 @@ class LocalFeatureImportanceAnalyzer:
     detailed visualizations including waterfall plots, force plots, and decision plots.
     """
     
-    def __init__(self, output_dir: str = "local_feature_analysis"):
+    def __init__(self, output_dir: str = "local_feature_analysis",model_metadata: Optional[Dict[str, Any]] = None):
         """
         Initialize the local feature importance analyzer.
         
@@ -69,7 +69,7 @@ class LocalFeatureImportanceAnalyzer:
         
         # Preprocessor for target inverse transformation
         self.preprocessor = None
-        
+        self.model_metadata = model_metadata
         logger.info(f"LocalFeatureImportanceAnalyzer initialized with output directory: {self.output_dir}")
     
     def _get_target_name(self, target_index: int) -> str:
@@ -87,93 +87,22 @@ class LocalFeatureImportanceAnalyzer:
             return self.target_names[target_index]
         else:
             return f"Target_{target_index}"
-    
-    def _get_intelligent_class_label(self, class_index: int, target_column_name: str = None) -> str:
-        """
-        智能生成分类任务的类别标签，优先使用label_mapping中的真实类别名称
-        
-        Args:
-            class_index: 类别索引
-            target_column_name: 目标列名称
-            
-        Returns:
-            智能生成的类别标签
-        """
-        # 获取基础目标列名称
-        if target_column_name:
-            base_name = target_column_name
-        elif (hasattr(self, 'target_names') and self.target_names and 
-              isinstance(self.target_names, list) and len(self.target_names) > 0):
-            base_name = self.target_names[0]
+    def _get_intelligent_class_label(self, class_index: int, target_column_name: Optional[str] = None) -> str:
+        if self.model_metadata:
+            class_to_label = self.model_metadata.get('label_mapping', {}).get('class_to_label', {})
+            if isinstance(class_to_label, dict):
+                class_to_label = {k: str(v) for k, v in class_to_label.items()}
+
+
+                return (class_to_label.get(str(int(class_index))) or 
+                        class_to_label.get(int(class_index)) or 
+                        f'Class_{int(class_index)}')
         else:
-            base_name = "Target"
-        
-        # 检查是否有模型信息和类别映射
-        if hasattr(self, 'model_metadata') and self.model_metadata:
-            # 优先使用label_mapping获取真实的类别名称
-            label_mapping = self.model_metadata.get('label_mapping', {})
-            if label_mapping:
-                class_to_label = label_mapping.get('class_to_label', {})
-                classes_list = label_mapping.get('classes', [])
-                
-                # 方法1: 通过class_to_label映射查找
-                if class_to_label:
-                    # 尝试使用class_index作为键查找
-                    class_label = (class_to_label.get(str(class_index)) or 
-                                 class_to_label.get(class_index))
-                    
-                    if class_label:
-                        # 如果找到了真实的类别名称，使用更简洁的格式
-                        if base_name and base_name.lower() not in ['target', 'label', 'class']:
-                            return f"{base_name}_{class_label}"
-                        else:
-                            return str(class_label)
-                
-                # 方法2: 通过classes列表查找
-                if classes_list and class_index < len(classes_list):
-                    class_label = classes_list[class_index]
-                    if base_name and base_name.lower() not in ['target', 'label', 'class']:
-                        return f"{base_name}_{class_label}"
-                    else:
-                        return str(class_label)
-            
-            # 回退到原来的model_info方式
-            model_info = self.model_metadata.get('model_info', {})
-            classes = model_info.get('classes', [])
-            n_classes = model_info.get('n_classes', 0)
-            task_type = self.model_metadata.get('task_type', 'unknown')
-            
-            if task_type == 'classification' and classes and class_index < len(classes):
-                class_value = classes[class_index]
-                
-                # 对于二分类，使用更有意义的标签
-                if n_classes == 2:
-                    if isinstance(class_value, (int, float)):
-                        # 如果原始类别是数字，保持原始的数字值
-                        if base_name and base_name.lower() not in ['target', 'label', 'class']:
-                            # 使用格式：目标列名_原始类别值 (如 "Survived_0", "Survived_1")
-                            return f"{base_name}_{int(class_value)}"
-                        else:
-                            return f"Class_{int(class_value)}"
-                    else:
-                        # 如果原始类别就是字符串，直接使用
-                        return f"{base_name}_{class_value}"
-                
-                # 对于多分类
-                else:
-                    if isinstance(class_value, (int, float)):
-                        # 对于数字类别，保持原始数字值
-                        return f"{base_name}_{int(class_value)}"
-                    else:
-                        # 对于字符串类别，直接使用
-                        return f"{base_name}_{class_value}"
-        
-        # 最终回退到原始逻辑
-        return f"{base_name}_Class{class_index}"
+            return f'Class_{class_index}'
     
     def analyze_sample_importance(
         self,
-        model: Union[RandomForestClassifier, RandomForestRegressor],
+        model: Union[xgb.XGBClassifier, xgb.XGBRegressor],
         sample_data: Union[np.ndarray, pd.DataFrame, Dict[str, float], List[float]],
         background_data: Union[np.ndarray, pd.DataFrame],
         feature_names: Optional[List[str]] = None,
@@ -185,7 +114,7 @@ class LocalFeatureImportanceAnalyzer:
         Analyze local feature importance for a single sample.
         
         Args:
-            model: Trained RandomForest model
+            model: Trained XGBoost model
             sample_data: Single sample to analyze (various input formats supported)
             background_data: Background data for SHAP explainer
             feature_names: Names of features
@@ -211,22 +140,17 @@ class LocalFeatureImportanceAnalyzer:
             self.X_data = X_background
             self.feature_names = feature_names
             
-            # Determine if this is a multi-target task
-            is_multi_target = False
-            target_names = None
-            target_dimension = 1
-            
+            # Store model metadata for intelligent labeling
             if model_metadata:
-                target_dimension = model_metadata.get('target_dimension', 1)
-                is_multi_target = target_dimension > 1
-                target_names = model_metadata.get('target_name', [])
-                if isinstance(target_names, str):
-                    target_names = [target_names]
-                # Store target names and model metadata in the analyzer for use in plotting
-                self.target_names = target_names if target_names else None
-                self.target_dimension = target_dimension
-                self.model_metadata = model_metadata  # Store full metadata for intelligent labeling
-                logger.info(f"Multi-target analysis: {is_multi_target}, Target dimension: {target_dimension}")
+                self.model_metadata = model_metadata
+                self.target_names = model_metadata.get('target_name', [])
+                if isinstance(self.target_names, str):
+                    self.target_names = [self.target_names]
+                self.target_dimension = model_metadata.get('target_dimension', 1)
+            
+            # Determine task type and configuration
+            task_config = self._determine_task_configuration(model, model_metadata)
+            logger.info(f"Task configuration: {task_config}")
             
             # Create SHAP explainer
             if self.shap_explainer is None:
@@ -236,212 +160,25 @@ class LocalFeatureImportanceAnalyzer:
             
             # Calculate SHAP values for the sample
             logger.info("Calculating SHAP values for sample...")
-            logger.info(f"X_sample shape: {X_sample.shape}, is_multi_target: {is_multi_target}, target_dimension: {target_dimension}")
-            
-            try:
-                sample_shap_values = self.shap_explainer.shap_values(X_sample)
-                logger.info(f"SHAP values computed successfully - shape: {getattr(sample_shap_values, 'shape', 'N/A')}, type: {type(sample_shap_values)}")
-                if isinstance(sample_shap_values, list):
-                    logger.info(f"SHAP values is a list with {len(sample_shap_values)} elements")
-                    for i, sv in enumerate(sample_shap_values):
-                        logger.info(f"  List element {i} shape: {sv.shape}")
-                else:
-                    logger.info(f"SHAP values single array shape: {sample_shap_values.shape}")
-            except Exception as shap_error:
-                logger.error(f"Error computing SHAP values: {str(shap_error)}")
-                logger.error(f"X_sample shape: {X_sample.shape}, X_sample type: {type(X_sample)}")
-                import traceback
-                logger.error(f"Full traceback: {traceback.format_exc()}")
-                raise
+            sample_shap_values = self.shap_explainer.shap_values(X_sample)
             
             # Get model prediction
-            model_prediction = self._get_model_prediction(model, X_sample)
+            prediction = self._get_model_prediction(model, X_sample)
             
-            # Handle multi-output case
-            if isinstance(sample_shap_values, list):
-                # Classification case - store all class SHAP values
-                self.shap_values = sample_shap_values
-                if len(sample_shap_values) == 2:
-                    # Binary classification - analyze positive class
-                    shap_values_to_analyze = sample_shap_values[1]
-                    expected_value = self.expected_value[1] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                else:
-                    # Multi-class - analyze first class (can be extended)
-                    shap_values_to_analyze = sample_shap_values[0]
-                    expected_value = self.expected_value[0] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                
-                # Extract SHAP values for single sample
-                if shap_values_to_analyze.ndim > 1:
-                    shap_values_single = shap_values_to_analyze[0]
-                else:
-                    shap_values_single = shap_values_to_analyze
-                
-                prediction_scalar = float(model_prediction[0]) if hasattr(model_prediction, '__len__') else float(model_prediction)
-                
-                # Generate intelligent target name for classification
-                target_name = None
-                if (hasattr(self, 'model_metadata') and self.model_metadata and 
-                    self.model_metadata.get('task_type') == 'classification'):
-                    target_column_name = self.model_metadata.get('target_column', 
-                                         self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                    if len(sample_shap_values) == 2:
-                        # Binary classification - use positive class
-                        target_name = self._get_intelligent_class_label(1, target_column_name)
-                    else:
-                        # Multi-class - use first class
-                        target_name = self._get_intelligent_class_label(0, target_column_name)
-                
-                print(f"DEBUG: In analyze_sample_importance, generated target_name: {target_name}")
-                
-                # Create classification results
-                results = self._create_single_target_results(
-                    sample_index, expected_value, prediction_scalar, 
-                    shap_values_single, X_sample, feature_names, model, X_background,
-                    target_name=target_name,
-                    original_sample_data=original_sample_data
+            # Prepare original sample data
+            original_sample = original_sample_data if original_sample_data is not None else None
+            
+            # Process based on task type
+            if task_config['task_type'] == 'classification':
+                return self._process_classification_sample(
+                    sample_shap_values, prediction, X_sample, X_background,
+                    feature_names, model, task_config, original_sample, sample_index
                 )
-                
-            elif is_multi_target and target_dimension > 1:
-                # Multi-target regression case
-                logger.info(f"Processing multi-target regression with {target_dimension} targets")
-                logger.info(f"SHAP values shape: {sample_shap_values.shape}")
-                logger.info(f"Expected value type: {type(self.expected_value)}, shape: {getattr(self.expected_value, 'shape', 'N/A')}")
-                logger.info(f"Model prediction shape: {getattr(model_prediction, 'shape', 'N/A')}")
-                
-                self.shap_values = sample_shap_values
-                
-                # Create results for each target
-                target_results = {}
-                overall_feature_importance = {}
-                
-                for target_idx in range(target_dimension):
-                    target_name = target_names[target_idx] if target_names and target_idx < len(target_names) else f"Target_{target_idx + 1}"
-                    
-                    # Extract SHAP values for this target
-                    # For multi-target regression, SHAP values shape can be (n_samples, n_features, n_targets) or (n_samples, n_targets, n_features)
-                    if sample_shap_values.ndim == 3:
-                        # Determine format based on dimensions
-                        if sample_shap_values.shape[1] == len(feature_names) and sample_shap_values.shape[2] == target_dimension:
-                            # Shape: (n_samples, n_features, n_targets)
-                            target_shap = sample_shap_values[0, :, target_idx]
-                        elif sample_shap_values.shape[1] == target_dimension and sample_shap_values.shape[2] == len(feature_names):
-                            # Shape: (n_samples, n_targets, n_features)
-                            target_shap = sample_shap_values[0, target_idx, :]
-                        else:
-                            logger.warning(f"Unexpected SHAP values shape: {sample_shap_values.shape}")
-                            target_shap = sample_shap_values[0, target_idx, :] if sample_shap_values.shape[1] >= target_idx else sample_shap_values[0, :, target_idx]
-                    elif sample_shap_values.ndim == 2 and target_dimension == 1:
-                        # Single target case
-                        target_shap = sample_shap_values[0, :]
-                    else:
-                        # Handle unexpected shapes
-                        logger.warning(f"Unexpected SHAP values shape: {sample_shap_values.shape}")
-                        if sample_shap_values.ndim == 2:
-                            target_shap = sample_shap_values[0, :]
-                        else:
-                            target_shap = sample_shap_values.flatten()[:len(feature_names)]
-                    
-                    # Extract expected value for this target
-                    if isinstance(self.expected_value, np.ndarray) and len(self.expected_value) > target_idx:
-                        target_expected = float(self.expected_value[target_idx])
-                    else:
-                        target_expected = float(self.expected_value)
-                    
-                    # Extract prediction for this target
-                    if isinstance(model_prediction, np.ndarray) and model_prediction.ndim > 1:
-                        target_prediction = float(model_prediction[0, target_idx])
-                    elif isinstance(model_prediction, np.ndarray) and len(model_prediction) > target_idx:
-                        target_prediction = float(model_prediction[target_idx])
-                    else:
-                        target_prediction = float(model_prediction)
-                    
-                    logger.info(f"Target {target_name}: expected={target_expected:.4f}, prediction={target_prediction:.4f}, shap_shape={target_shap.shape}")
-                    
-                    # Create results for this target
-                    target_result = self._create_single_target_results(
-                        sample_index, target_expected, target_prediction,
-                        target_shap, X_sample, feature_names, model, X_background,
-                        target_name=target_name,
-                        original_sample_data=original_sample_data
-                    )
-                    
-                    target_results[target_name] = target_result
-                    
-                    # Accumulate feature importance across targets
-                    for contrib in target_result['feature_contributions']:
-                        feature = contrib['feature']
-                        if feature not in overall_feature_importance:
-                            overall_feature_importance[feature] = {
-                                'total_abs_shap': 0,
-                                'target_contributions': {},
-                                'feature_value': contrib['value']
-                            }
-                        overall_feature_importance[feature]['total_abs_shap'] += abs(contrib['shap_value'])
-                        overall_feature_importance[feature]['target_contributions'][target_name] = contrib['shap_value']
-                
-                # Create overall summary
-                overall_contributions = []
-                for feature, data in overall_feature_importance.items():
-                    overall_contributions.append({
-                        'feature': feature,
-                        'value': data['feature_value'],
-                        'total_abs_shap': data['total_abs_shap'],
-                        'target_contributions': data['target_contributions']
-                    })
-                
-                # Sort by total absolute SHAP importance
-                overall_contributions.sort(key=lambda x: x['total_abs_shap'], reverse=True)
-                for i, contrib in enumerate(overall_contributions):
-                    contrib['overall_rank'] = i + 1
-                
-                # Create comprehensive multi-target results
-                results = {
-                    'sample_index': sample_index or 0,
-                    'is_multi_target': True,
-                    'target_dimension': target_dimension,
-                    'target_names': target_names if target_names else [f"Target_{i+1}" for i in range(target_dimension)],
-                    'target_results': target_results,
-                    'overall_feature_importance': overall_contributions,
-                    'analysis_metadata': {
-                        'timestamp': datetime.now().isoformat(),
-                        'n_features': len(feature_names),
-                        'n_targets': target_dimension,
-                        'model_type': type(model).__name__,
-                        'background_samples': X_background.shape[0],
-                        'analysis_based_on_preprocessed_data': True,
-                        'data_preprocessing_note': 'SHAP analysis is performed on preprocessed (scaled/normalized) feature values. Original values are provided for reference.'
-                    }
-                }
-                
-                logger.info(f"Multi-target local importance analysis completed")
-                logger.info(f"Top 3 overall contributing features: {', '.join([c['feature'] for c in overall_contributions[:3]])}")
-                
-            else:
-                # Single-target regression case
-                self.shap_values = sample_shap_values
-                shap_values_to_analyze = sample_shap_values
-                expected_value = self.expected_value
-                
-                # Extract SHAP values for single sample
-                if shap_values_to_analyze.ndim > 1:
-                    shap_values_single = shap_values_to_analyze[0]
-                else:
-                    shap_values_single = shap_values_to_analyze
-                
-                prediction_scalar = float(model_prediction[0]) if hasattr(model_prediction, '__len__') else float(model_prediction)
-                
-                # Create single-target results
-                results = self._create_single_target_results(
-                    sample_index, expected_value, prediction_scalar,
-                    shap_values_single, X_sample, feature_names, model, X_background,
-                    target_name=target_names[0],
-                    original_sample_data=original_sample_data
+            else:  # regression
+                return self._process_regression_sample(
+                    sample_shap_values, prediction, X_sample, X_background,
+                    feature_names, model, task_config, original_sample, sample_index
                 )
-            
-            # Store analysis timestamp
-            self.analysis_timestamp = results['analysis_metadata']['timestamp']
-            
-            return results
             
         except Exception as e:
             logger.error(f"Error in local sample importance analysis: {str(e)}")
@@ -449,7 +186,7 @@ class LocalFeatureImportanceAnalyzer:
     
     def analyze_batch_importance(
         self,
-        model: Union[RandomForestClassifier, RandomForestRegressor],
+        model: Union[xgb.XGBClassifier, xgb.XGBRegressor],
         batch_data: Union[np.ndarray, pd.DataFrame, List[Dict[str, float]]],
         background_data: Union[np.ndarray, pd.DataFrame],
         feature_names: Optional[List[str]] = None,
@@ -461,7 +198,7 @@ class LocalFeatureImportanceAnalyzer:
         Analyze local feature importance for a batch of samples.
         
         Args:
-            model: Trained RandomForest model
+            model: Trained XGBoost model
             batch_data: Batch of samples to analyze
             background_data: Background data for SHAP explainer
             feature_names: Names of features
@@ -487,18 +224,9 @@ class LocalFeatureImportanceAnalyzer:
             self.X_data = X_background
             self.feature_names = feature_names
             
-            # Determine if this is a multi-target task
-            is_multi_target = False
-            target_names = None
-            target_dimension = 1
-            
-            if model_metadata:
-                target_dimension = model_metadata.get('target_dimension', 1)
-                is_multi_target = target_dimension > 1
-                target_names = model_metadata.get('target_name', [])
-                if isinstance(target_names, str):
-                    target_names = [target_names]
-                logger.info(f"Batch multi-target analysis: {is_multi_target}, Target dimension: {target_dimension}")
+            # Determine task type and configuration from model and metadata
+            task_config = self._determine_task_configuration(model, model_metadata)
+            logger.info(f"Task configuration: {task_config}")
             
             # Create SHAP explainer
             if self.shap_explainer is None:
@@ -513,77 +241,386 @@ class LocalFeatureImportanceAnalyzer:
             # Get model predictions for the batch
             predictions = self._get_model_prediction(model, X_batch)
             
-            # Handle multi-output case
-            if isinstance(batch_shap_values, list):
-                # Classification case
-                self.shap_values = batch_shap_values
-                if len(batch_shap_values) == 2:
-                    # Binary classification - analyze positive class
-                    shap_values_to_analyze = batch_shap_values[1]
-                    expected_value = self.expected_value[1] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                else:
-                    # Multi-class - analyze first class (can be extended)
-                    shap_values_to_analyze = batch_shap_values[0]
-                    expected_value = self.expected_value[0] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+            # Prepare original batch samples
+            original_samples = self._prepare_original_batch_samples(original_batch_data, X_batch.shape[0])
+            
+            # Process based on task type
+            if task_config['task_type'] == 'classification':
+                return self._process_classification_batch(
+                    batch_shap_values, predictions, X_batch, X_background, 
+                    feature_names, model, task_config, original_samples,
+                    class_predictions=predictions
+                )
+            else:  # regression
+                return self._process_regression_batch(
+                    batch_shap_values, predictions, X_batch, X_background, 
+                    feature_names, model, task_config, original_samples
+                )
+
+        except Exception as e:
+            logger.error(f"Error in batch importance analysis: {str(e)}")
+            raise
+    
+    def _determine_task_configuration(
+        self, 
+        model: Union[xgb.XGBClassifier, xgb.XGBRegressor], 
+        model_metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Determine task configuration from model type and metadata (unified approach).
+        
+        Args:
+            model: XGBoost model
+            model_metadata: Optional metadata from training
+            
+        Returns:
+            Dictionary with task configuration including:
+            - task_type: 'classification' or 'regression'
+            - is_multi_target: bool (for regression)
+            - n_classes: int (for classification)
+            - n_targets: int (for regression)
+            - target_names: list
+        """
+        config = {}
+        
+        # Determine task type from model
+        if isinstance(model, xgb.XGBClassifier):
+            config['task_type'] = 'classification'
+            config['is_multi_target'] = False
+            config['n_targets'] = 1
+            
+            # Determine number of classes
+            if hasattr(model, 'classes_') and model.classes_ is not None:
+                config['n_classes'] = len(model.classes_)
+                config['is_binary_classification'] = config['n_classes'] == 2
+            else:
+                # Default to binary classification if classes_ not available
+                config['n_classes'] = 2
+                config['is_binary_classification'] = True
                 
-                # Prepare original batch data for each sample
-                original_samples = []
-                if original_batch_data is not None:
-                    if isinstance(original_batch_data, pd.DataFrame):
-                        original_samples = [original_batch_data.iloc[i:i+1] for i in range(min(len(original_batch_data), X_batch.shape[0]))]
-                    elif isinstance(original_batch_data, list):
-                        original_samples = original_batch_data[:X_batch.shape[0]]
-                    elif isinstance(original_batch_data, np.ndarray):
-                        original_samples = [original_batch_data[i:i+1] for i in range(X_batch.shape[0])]
-                    else:
-                        original_samples = [None] * X_batch.shape[0]
-                else:
-                    original_samples = [None] * X_batch.shape[0]
+        else:  # XGBRegressor
+            config['task_type'] = 'regression'
+            config['n_classes'] = 1
+            config['is_binary_classification'] = False
+            
+            # Determine if multi-target regression - support multiple field names
+            target_dimension = 1
+            target_names = []
+            
+            if model_metadata:
+                # Support multiple field name variants
+                target_dimension = (
+                    model_metadata.get('target_dimension', 1) or
+                    model_metadata.get('n_targets', 1) or
+                    model_metadata.get('num_targets', 1) or
+                    1
+                )
                 
-                # Create detailed results for each sample
-                sample_results = []
-                for i in range(X_batch.shape[0]):
-                    sample_result = self._create_single_target_results(
-                        i, expected_value, 
-                        float(predictions[i]) if hasattr(predictions, '__len__') else float(predictions),
+                # Get target names from metadata
+                target_names = model_metadata.get('target_names', [])
+                if not target_names:
+                    target_names = model_metadata.get('target_name', [])
+                if isinstance(target_names, str):
+                    target_names = [target_names]
+                    
+            config['n_targets'] = target_dimension
+            config['is_multi_target'] = target_dimension > 1
+            config['target_names'] = target_names if target_names else [f"Target_{i}" for i in range(target_dimension)]
+            
+        self.task_config = config
+        return config
+    
+    def _prepare_original_batch_samples(
+        self, 
+        original_batch_data: Optional[Union[np.ndarray, pd.DataFrame, List[Dict[str, float]]]], 
+        batch_size: int
+    ) -> List[Any]:
+        """
+        Prepare original batch samples for use in analysis.
+        
+        Args:
+            original_batch_data: Original batch data before preprocessing
+            batch_size: Size of the batch
+            
+        Returns:
+            List of original samples
+        """
+        original_samples = []
+
+        if original_batch_data is not None:
+            if isinstance(original_batch_data, pd.DataFrame):
+                original_samples = [original_batch_data.iloc[i:i+1] for i in range(min(len(original_batch_data), batch_size))]
+            elif isinstance(original_batch_data, list):
+                original_samples = original_batch_data[:batch_size]
+            elif isinstance(original_batch_data, np.ndarray):
+                original_samples = [original_batch_data[i:i+1] for i in range(batch_size)]
+            else:
+                original_samples = [None] * batch_size
+        else:
+            original_samples = [None] * batch_size
+            
+        return original_samples
+    
+    def _process_classification_batch(
+        self,
+        batch_shap_values: Union[np.ndarray, List[np.ndarray]],
+        predictions: Union[float, np.ndarray],
+        X_batch: np.ndarray,
+        X_background: np.ndarray,
+        feature_names: List[str],
+        model: xgb.XGBClassifier,
+        task_config: Dict[str, Any],
+        original_samples: List[Any],
+        class_predictions: Optional[np.ndarray] = None
+    ) -> Dict[str, Any]:
+        """
+        Process batch SHAP analysis for classification tasks (unified approach).
+        
+        Args:
+            batch_shap_values: SHAP values from explainer
+            predictions: Model predictions
+            X_batch: Batch data
+            X_background: Background data
+            feature_names: Feature names
+            model: XGBoost classifier
+            task_config: Task configuration
+            original_samples: Original sample data
+            class_predictions: probabilities of each class
+            
+        Returns:
+            Analysis results dictionary
+        """
+        logger.info(f"Processing classification batch: {task_config['n_classes']} classes, {X_batch.shape[0]} samples")
+        
+        # Store SHAP values
+        self.shap_values = batch_shap_values
+        
+        # Extract SHAP values to analyze using unified approach
+        # 选取预测概率最大的类进行分析
+        analysis_predictions = np.argmax(class_predictions, axis=1)
+        shap_values_to_analyze, expected_values, analysis_info = self._extract_classification_shap_values(
+            batch_shap_values, analysis_predictions, task_config
+        )
+        
+        # Create sample results
+        sample_results = []
+        for i in range(X_batch.shape[0]):
+            # For each sample, get the probability of its predicted class
+            predicted_class_idx = int(analysis_predictions[i])
+            sample_prediction_probability = float(class_predictions[i, predicted_class_idx])
+            predict_label = self._get_intelligent_class_label(predicted_class_idx)
+            sample_result = self._create_single_target_results(
+                i, expected_values[i],
+                sample_prediction_probability,
                         shap_values_to_analyze[i], 
                         X_batch[i:i+1], feature_names, model, X_background,
-                        original_sample_data=original_samples[i]
+                original_sample_data=original_samples[i],
+                class_prediction_label=predict_label,
+                is_batch=True
                     )
-                    sample_results.append(sample_result)
+            sample_results.append(sample_result)
                 
-                # Calculate original scale batch statistics if preprocessor is available (classification)
-                original_scale_predictions = predictions
-                original_scale_expected_value = expected_value
-                
-                if hasattr(self, 'preprocessor') and self.preprocessor is not None:
-                    try:
-                        # Transform batch predictions to original scale
-                        pred_array = np.array(predictions)
-                        if pred_array.ndim == 1:
-                            pred_array = pred_array.reshape(-1, 1)
-                        original_pred_transformed = self.preprocessor.inverse_transform_target(pred_array)
-                        original_scale_predictions = original_pred_transformed.ravel() if original_pred_transformed.shape[1] == 1 else original_pred_transformed
-                        
-                        # Transform expected value to original scale
-                        if isinstance(expected_value, np.ndarray) and expected_value.ndim > 0:
-                            if expected_value.ndim == 1:
-                                expected_array = expected_value.reshape(-1, 1)
-                            else:
-                                expected_array = expected_value
-                        else:
-                            expected_array = np.array([[float(expected_value)]])
-                        original_expected_transformed = self.preprocessor.inverse_transform_target(expected_array)
-                        original_scale_expected_value = float(original_expected_transformed[0])
-                        
-                        logger.info(f"Transformed batch mean prediction from {np.mean(predictions)} to original scale: {np.mean(original_scale_predictions)}")
-                    except Exception as e:
-                        logger.warning(f"Failed to transform batch predictions to original scale: {e}")
-                        original_scale_predictions = predictions
-                        original_scale_expected_value = expected_value
+        # Calculate original scale statistics
+        # Extract the predicted class probabilities for statistics
+        sample_prediction_probabilities = np.array([
+            class_predictions[i, int(analysis_predictions[i])] for i in range(X_batch.shape[0])
+        ])
+        
+        original_scale_predictions, original_scale_expected_value = self._transform_to_original_scale(
+            sample_prediction_probabilities, expected_values
+        )
 
-                # Create batch summary
-                results = {
+        # Create results
+        results = {
+            'batch_size': X_batch.shape[0],
+            'n_classes': task_config['n_classes'],
+            'sample_results': sample_results,
+            'analysis_metadata': {
+                'n_features': len(feature_names),
+                'model_type': type(model).__name__,
+                'background_samples': X_background.shape[0],
+                'analysis_based_on_preprocessed_data': True,
+                'data_preprocessing_note': 'SHAP analysis is performed on preprocessed (scaled/normalized) feature values. Original values are provided for reference.',
+            }
+        }
+        
+        # Store analysis timestamp
+        
+        logger.info(f"Classification batch analysis completed for {X_batch.shape[0]} samples")
+        return results
+    
+    def _extract_classification_shap_values(
+        self,
+        batch_shap_values: Union[np.ndarray, List[np.ndarray]],
+        predictions: Union[float, np.ndarray],
+        task_config: Dict[str, Any]
+    ) -> Tuple[np.ndarray, Union[float, np.ndarray], Optional[Dict[str, Any]]]:
+        """
+        Extract SHAP values for classification analysis based on predicted classes.
+        
+        Args:
+            batch_shap_values: Raw SHAP values from explainer
+            predictions: Model predictions (class indices from argmax)
+            task_config: Task configuration
+            
+        Returns:
+            Tuple of:
+            - shap_values_to_analyze: SHAP values for each sample's predicted class
+            - expected_values: Expected values for each sample's predicted class
+            - analysis_info: Analysis metadata
+        """
+        # Convert list format to numpy array for unified processing
+        if isinstance(batch_shap_values, list):
+            # Convert list to 3D array: (n_samples, n_features, n_classes)
+            batch_shap_values = np.array(batch_shap_values).transpose(1, 2, 0)
+            logger.info(f"Converted list SHAP values to 3D array: {batch_shap_values.shape}")
+        
+        # Handle 3D numpy array (n_samples, n_features, n_classes)
+        if isinstance(batch_shap_values, np.ndarray) and batch_shap_values.ndim == 3:
+            n_samples, n_features, n_classes = batch_shap_values.shape
+            logger.info(f"Processing 3D SHAP values: {n_samples} samples, {n_features} features, {n_classes} classes")
+            
+            # Convert predictions to numpy array for easier processing
+            predictions_array = np.array(predictions) if not isinstance(predictions, np.ndarray) else predictions
+            
+            # For each sample, extract SHAP values for its predicted class
+            shap_values_to_analyze = np.zeros((n_samples, n_features))
+            expected_values = np.zeros(n_samples)
+            
+            for i in range(n_samples):
+                predicted_class = int(predictions_array[i])
+                # Ensure predicted class is within valid range
+                predicted_class = max(0, min(predicted_class, n_classes - 1))
+                
+                # Extract SHAP values for this sample's predicted class
+                shap_values_to_analyze[i] = batch_shap_values[i, :, predicted_class]
+                
+                # Extract expected value for this class (no averaging)
+                if isinstance(self.expected_value, np.ndarray) and len(self.expected_value) > predicted_class:
+                    expected_values[i] = self.expected_value[predicted_class]
+                else:
+                    expected_values[i] = float(self.expected_value)
+            
+            # Create detailed analysis info
+            unique_classes, class_counts = np.unique(predictions_array, return_counts=True)
+            # prediction_stats = {
+            #     'total_samples': len(predictions_array),
+            #     'predicted_classes': predictions_array.tolist(),
+            #     'unique_predicted_classes': unique_classes.tolist(),
+            #     'class_counts': dict(zip(unique_classes.tolist(), class_counts.tolist())),
+            #     'analysis_approach': 'individual_class_per_sample',
+            #     'expected_values_per_class': {
+            #         str(cls): float(self.expected_value[cls]) if isinstance(self.expected_value, np.ndarray) else float(self.expected_value)
+            #         for cls in unique_classes
+            #     }
+            # }
+            
+            logger.info(f"Analyzing individual predicted classes for each sample: {dict(zip(unique_classes, class_counts))}")
+            
+            # analysis_info = {
+            #     'analysis_strategy': 'individual_predicted_class_analysis',
+            #     'total_classes': n_classes,
+            #     'prediction_stats': prediction_stats,
+            #     'analysis_note': f'Classification: each sample analyzed for its own predicted class with corresponding expected value'
+            # }
+            analysis_info = {'analysis_note': f'Classification: each sample analyzed for its own predicted class with corresponding expected value'}
+        else:
+            # Fallback for single output or unexpected formats
+            shap_values_to_analyze = batch_shap_values
+            expected_values = float(self.expected_value)
+            analysis_info = {
+                'analysis_strategy': 'single_output',
+                'analysis_note': 'Single output classification analysis'
+            }
+        
+        return shap_values_to_analyze, expected_values, analysis_info
+    
+    def _process_regression_batch(
+        self,
+        batch_shap_values: np.ndarray,
+        predictions: Union[float, np.ndarray],
+        X_batch: np.ndarray,
+        X_background: np.ndarray,
+        feature_names: List[str],
+        model: xgb.XGBRegressor,
+        task_config: Dict[str, Any],
+        original_samples: List[Any]
+    ) -> Dict[str, Any]:
+        """
+        Process batch SHAP analysis for regression tasks (single and multi-target).
+        
+        Args:
+            batch_shap_values: SHAP values from explainer
+            predictions: Model predictions
+            X_batch: Batch data
+            X_background: Background data
+            feature_names: Feature names
+            model: XGBoost regressor
+            task_config: Task configuration
+            original_samples: Original sample data
+            
+        Returns:
+            Analysis results dictionary
+        """
+        logger.info(f"Processing regression batch: {task_config['n_targets']} targets, {X_batch.shape[0]} samples")
+        
+        # Store SHAP values
+        self.shap_values = batch_shap_values
+        
+        if task_config['is_multi_target']:
+            return self._process_multi_target_regression(
+                batch_shap_values, predictions, X_batch, X_background,
+                feature_names, model, task_config, original_samples
+            )
+        else:
+            return self._process_single_target_regression(
+                batch_shap_values, predictions, X_batch, X_background,
+                feature_names, model, task_config, original_samples
+            )
+    
+    def _process_single_target_regression(
+        self,
+        batch_shap_values: np.ndarray,
+        predictions: Union[float, np.ndarray],
+        X_batch: np.ndarray,
+        X_background: np.ndarray,
+        feature_names: List[str],
+        model: xgb.XGBRegressor,
+        task_config: Dict[str, Any],
+        original_samples: List[Any]
+    ) -> Dict[str, Any]:
+        """
+        Process single-target regression batch.
+        
+        Returns:
+            Analysis results dictionary
+        """
+        logger.info(f"Processing single-target regression: {X_batch.shape[0]} samples")
+        
+        # For single-target regression, SHAP values should be 2D: (n_samples, n_features)
+        shap_values_to_analyze = batch_shap_values
+        expected_value = float(self.expected_value)
+        
+        # Create sample results
+        sample_results = []
+        for i in range(X_batch.shape[0]):
+            sample_result = self._create_single_target_results(
+                i, expected_value,
+                float(predictions[i]) if hasattr(predictions, '__len__') else float(predictions),
+                shap_values_to_analyze[i],
+                X_batch[i:i+1], feature_names, model, X_background,
+                target_name=task_config['target_names'][0] if task_config['target_names'] else None,
+                original_sample_data=original_samples[i]
+            )
+            sample_results.append(sample_result)
+        
+        # Calculate original scale statistics
+        original_scale_predictions, original_scale_expected_value = self._transform_to_original_scale(
+            predictions, expected_value
+        )
+        
+        # Create results
+        results = {
                     'batch_size': X_batch.shape[0],
                     'is_multi_target': False,
                     'expected_value': float(expected_value),
@@ -607,121 +644,140 @@ class LocalFeatureImportanceAnalyzer:
                     }
                 }
                 
-            elif is_multi_target and target_dimension > 1:
-                # Multi-target regression case
-                logger.info(f"Processing multi-target regression batch with {target_dimension} targets")
-                logger.info(f"Batch SHAP values shape: {batch_shap_values.shape}")
-                logger.info(f"Expected shape interpretation: (n_samples, n_features, n_targets) or (n_samples, n_targets, n_features)")
+        # Store analysis timestamp
+        self.analysis_timestamp = results['analysis_metadata']['timestamp']
+        
+        logger.info(f"Single-target regression batch analysis completed for {X_batch.shape[0]} samples")
+        return results
+    
+    def _transform_to_original_scale(
+        self, 
+        predictions: Union[float, np.ndarray], 
+        expected_values: Union[float, np.ndarray]
+    ) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+        """
+        Transform predictions and expected values to original scale if preprocessor is available.
+        Now supports per-sample expected values for classification tasks.
+        
+        Args:
+            predictions: Model predictions (probabilities for classification)
+            expected_values: Expected values (can be per-sample for classification)
+            
+        Returns:
+            Tuple of transformed predictions and expected values
+        """
+        if not hasattr(self, 'preprocessor') or self.preprocessor is None:
+            return predictions, expected_values
+            
+        try:
+            # For classification, transform each prediction independently
+            if isinstance(predictions, np.ndarray) and predictions.ndim == 1:
+                original_scale_predictions = np.array([
+                    self.preprocessor.inverse_transform_prediction(pred)
+                    for pred in predictions
+                ])
                 
-                # For multi-target regression, SHAP values shape should be (n_samples, n_features, n_targets)
-                # But some versions might return (n_samples, n_targets, n_features)
-                # Let's determine the correct interpretation
-                if batch_shap_values.shape[1] == len(feature_names) and batch_shap_values.shape[2] == target_dimension:
-                    # Shape: (n_samples, n_features, n_targets)
-                    shap_format = "samples_features_targets"
-                    logger.info("SHAP format detected: (n_samples, n_features, n_targets)")
-                elif batch_shap_values.shape[1] == target_dimension and batch_shap_values.shape[2] == len(feature_names):
-                    # Shape: (n_samples, n_targets, n_features) 
-                    shap_format = "samples_targets_features"
-                    logger.info("SHAP format detected: (n_samples, n_targets, n_features)")
+                # Transform each expected value independently
+                if isinstance(expected_values, np.ndarray) and expected_values.ndim == 1:
+                    original_scale_expected_values = np.array([
+                        self.preprocessor.inverse_transform_prediction(exp_val)
+                        for exp_val in expected_values
+                    ])
                 else:
-                    logger.error(f"Unexpected SHAP shape: {batch_shap_values.shape} for {len(feature_names)} features and {target_dimension} targets")
-                    raise ValueError(f"Unexpected SHAP values shape: {batch_shap_values.shape}")
-                logger.info(f"Batch SHAP values shape: {batch_shap_values.shape}")
-                logger.info(f"Predictions shape: {getattr(predictions, 'shape', 'N/A')}")
+                    # Single expected value for all samples
+                    original_scale_expected_values = self.preprocessor.inverse_transform_prediction(expected_values)
+                    
+            else:
+                # Single prediction
+                original_scale_predictions = self.preprocessor.inverse_transform_prediction(predictions)
+                original_scale_expected_values = self.preprocessor.inverse_transform_prediction(expected_values)
                 
-                self.shap_values = batch_shap_values
+        except Exception as e:
+            logger.warning(f"Could not transform to original scale: {str(e)}")
+            return predictions, expected_values
+            
+        return original_scale_predictions, original_scale_expected_values
+    
+    def _process_multi_target_regression(
+        self,
+        batch_shap_values: np.ndarray,
+        predictions: Union[float, np.ndarray],
+        X_batch: np.ndarray,
+        X_background: np.ndarray,
+        feature_names: List[str],
+        model: xgb.XGBRegressor,
+        task_config: Dict[str, Any],
+        original_samples: List[Any]
+    ) -> Dict[str, Any]:
+        """
+        Process multi-target regression batch.
+        
+        Returns:
+            Analysis results dictionary
+        """
+        n_targets = task_config['n_targets']
+        target_names = task_config['target_names']
+        
+        logger.info(f"Processing multi-target regression: {n_targets} targets, {X_batch.shape[0]} samples")
+        logger.info(f"Batch SHAP values shape: {batch_shap_values.shape}")
                 
-                # Create results for each sample and target
-                sample_results = []
-                target_batch_summaries = {}
-                overall_batch_importance = {}
+        # Determine SHAP format for multi-target
+        shap_format = self._determine_multitarget_shap_format(batch_shap_values, len(feature_names), n_targets)
+        logger.info(f"SHAP format detected: {shap_format}")
+                
+        # Initialize tracking structures
+        sample_results = []
+        target_batch_summaries = {}
+        overall_batch_importance = {}
                 
                 # Initialize target summaries
-                for target_idx in range(target_dimension):
-                    target_name = target_names[target_idx] if target_names and target_idx < len(target_names) else f"Target_{target_idx + 1}"
-                    target_batch_summaries[target_name] = {
+        for target_idx in range(n_targets):
+            target_name = target_names[target_idx] if target_idx < len(target_names) else f"Target_{target_idx + 1}"
+            target_batch_summaries[target_name] = {
                         'predictions': [],
                         'sample_results': []
                     }
                 
-                # Prepare original batch data for each sample (multi-target case)
-                original_samples = []
-                if original_batch_data is not None:
-                    if isinstance(original_batch_data, pd.DataFrame):
-                        original_samples = [original_batch_data.iloc[i:i+1] for i in range(min(len(original_batch_data), X_batch.shape[0]))]
-                    elif isinstance(original_batch_data, list):
-                        original_samples = original_batch_data[:X_batch.shape[0]]
-                    elif isinstance(original_batch_data, np.ndarray):
-                        original_samples = [original_batch_data[i:i+1] for i in range(X_batch.shape[0])]
-                    else:
-                        original_samples = [None] * X_batch.shape[0]
-                else:
-                    original_samples = [None] * X_batch.shape[0]
-                
                 # Process each sample
-                for i in range(X_batch.shape[0]):
-                    # Create multi-target result for this sample
+            for i in range(X_batch.shape[0]):
                     sample_target_results = {}
                     sample_overall_importance = {}
                     
-                    for target_idx in range(target_dimension):
-                        target_name = target_names[target_idx] if target_names and target_idx < len(target_names) else f"Target_{target_idx + 1}"
+            for target_idx in range(n_targets):
+                target_name = target_names[target_idx] if target_idx < len(target_names) else f"Target_{target_idx + 1}"
                         
                         # Extract SHAP values for this target and sample
-                        if batch_shap_values.ndim == 3:
-                            if shap_format == "samples_features_targets":
-                                # Shape: (n_samples, n_features, n_targets)
-                                target_shap = batch_shap_values[i, :, target_idx]
-                            else:
-                                # Shape: (n_samples, n_targets, n_features)
-                                target_shap = batch_shap_values[i, target_idx, :]
-                        elif batch_shap_values.ndim == 2:
-                            target_shap = batch_shap_values[i, :]
-                        else:
-                            logger.warning(f"Unexpected batch SHAP values shape: {batch_shap_values.shape}")
-                            target_shap = batch_shap_values.flatten()[:len(feature_names)]
+                target_shap = self._extract_multitarget_shap_values(
+                    batch_shap_values, i, target_idx, shap_format, len(feature_names)
+                )
+                
+                # Extract expected value and prediction for this target
+                target_expected = self._extract_multitarget_expected_value(target_idx)
+                target_prediction = self._extract_multitarget_prediction(predictions, i, target_idx)
                         
-                        # Extract expected value for this target
-                        if isinstance(self.expected_value, np.ndarray) and len(self.expected_value) > target_idx:
-                            target_expected = float(self.expected_value[target_idx])
-                        else:
-                            target_expected = float(self.expected_value)
-                        
-                        # Extract prediction for this target and sample
-                        if isinstance(predictions, np.ndarray) and predictions.ndim > 1:
-                            target_prediction = float(predictions[i, target_idx])
-                        elif isinstance(predictions, np.ndarray) and len(predictions) > i:
-                            if hasattr(predictions[i], '__len__') and len(predictions[i]) > target_idx:
-                                target_prediction = float(predictions[i][target_idx])
-                            else:
-                                target_prediction = float(predictions[i])
-                        else:
-                            target_prediction = float(predictions)
-                        
-                        # Create result for this target
-                        target_result = self._create_single_target_results(
+                # Create result for this target
+                target_result = self._create_single_target_results(
                             i, target_expected, target_prediction,
                             target_shap, X_batch[i:i+1], feature_names, model, X_background,
                             target_name=target_name,
                             original_sample_data=original_samples[i]
                         )
                         
-                        sample_target_results[target_name] = target_result
-                        target_batch_summaries[target_name]['predictions'].append(target_prediction)
-                        target_batch_summaries[target_name]['sample_results'].append(target_result)
+                sample_target_results[target_name] = target_result
+                target_batch_summaries[target_name]['predictions'].append(target_prediction)
+                target_batch_summaries[target_name]['sample_results'].append(target_result)
                         
                         # Accumulate overall importance for this sample
-                        for contrib in target_result['feature_contributions']:
-                            feature = contrib['feature']
-                            if feature not in sample_overall_importance:
-                                sample_overall_importance[feature] = {
-                                    'total_abs_shap': 0,
-                                    'target_contributions': {},
-                                    'feature_value': contrib['value']
-                                }
-                            sample_overall_importance[feature]['total_abs_shap'] += abs(contrib['shap_value'])
-                            sample_overall_importance[feature]['target_contributions'][target_name] = contrib['shap_value']
+                for contrib in target_result['feature_contributions']:
+                    feature = contrib['feature']
+                    if feature not in sample_overall_importance:
+                        sample_overall_importance[feature] = {
+                            'total_abs_shap': 0,
+                            'target_contributions': {},
+                            'feature_value': contrib['value']
+                        }
+                    sample_overall_importance[feature]['total_abs_shap'] += abs(contrib['shap_value'])
+                    sample_overall_importance[feature]['target_contributions'][target_name] = contrib['shap_value']
                     
                     # Create overall contributions for this sample
                     sample_overall_contributions = []
@@ -752,8 +808,8 @@ class LocalFeatureImportanceAnalyzer:
                     sample_result = {
                         'sample_index': i,
                         'is_multi_target': True,
-                        'target_dimension': target_dimension,
-                        'target_names': target_names if target_names else [f"Target_{i+1}" for i in range(target_dimension)],
+                'target_dimension': n_targets,
+                'target_names': target_names,
                         'target_results': sample_target_results,
                         'overall_feature_importance': sample_overall_contributions
                     }
@@ -785,123 +841,110 @@ class LocalFeatureImportanceAnalyzer:
                 results = {
                     'batch_size': X_batch.shape[0],
                     'is_multi_target': True,
-                    'target_dimension': target_dimension,
-                    'target_names': target_names if target_names else [f"Target_{i+1}" for i in range(target_dimension)],
+            'target_dimension': n_targets,
+            'target_names': target_names,
                     'sample_results': sample_results,
                     'target_batch_summaries': target_batch_summaries,
                     'batch_overall_importance': batch_overall_importance,
                     'analysis_metadata': {
                         'timestamp': datetime.now().isoformat(),
                         'n_features': len(feature_names),
-                        'n_targets': target_dimension,
+                'n_targets': n_targets,
                         'model_type': type(model).__name__,
                         'background_samples': X_background.shape[0],
+                'shap_format': shap_format,
                         'analysis_based_on_preprocessed_data': True,
                         'data_preprocessing_note': 'SHAP analysis is performed on preprocessed (scaled/normalized) feature values. Original values are provided for reference.'
                     }
                 }
                 
-                logger.info(f"Multi-target batch analysis completed for {X_batch.shape[0]} samples")
-                logger.info(f"Top 3 batch features: {', '.join([c['feature'] for c in batch_overall_importance[:3]])}")
+        # Store analysis timestamp
+        self.analysis_timestamp = results['analysis_metadata']['timestamp']
+        
+        logger.info(f"Multi-target regression batch analysis completed for {X_batch.shape[0]} samples")
+        logger.info(f"Top 3 batch features: {', '.join([c['feature'] for c in batch_overall_importance[:3]])}")
                 
+        return results
+    
+    def _determine_multitarget_shap_format(
+        self, 
+        batch_shap_values: np.ndarray, 
+        n_features: int, 
+        n_targets: int
+    ) -> str:
+        """
+        Determine the format of multi-target SHAP values.
+        
+        Returns:
+            Format string: 'samples_features_targets' or 'samples_targets_features'
+        """
+        if batch_shap_values.shape[1] == n_features and batch_shap_values.shape[2] == n_targets:
+            return "samples_features_targets"
+        elif batch_shap_values.shape[1] == n_targets and batch_shap_values.shape[2] == n_features:
+            return "samples_targets_features"
+        else:
+            logger.error(f"Unexpected SHAP shape: {batch_shap_values.shape} for {n_features} features and {n_targets} targets")
+            raise ValueError(f"Unexpected SHAP values shape: {batch_shap_values.shape}")
+    
+    def _extract_multitarget_shap_values(
+        self, 
+        batch_shap_values: np.ndarray, 
+        sample_idx: int, 
+        target_idx: int, 
+        shap_format: str, 
+        n_features: int
+    ) -> np.ndarray:
+        """
+        Extract SHAP values for a specific sample and target in multi-target regression.
+        
+        Returns:
+            1D SHAP values for the specified sample and target
+        """
+        if batch_shap_values.ndim == 3:
+            if shap_format == "samples_features_targets":
+                return batch_shap_values[sample_idx, :, target_idx]
+            else:  # samples_targets_features
+                return batch_shap_values[sample_idx, target_idx, :]
+        elif batch_shap_values.ndim == 2:
+            # Fallback for single target
+            return batch_shap_values[sample_idx, :]
+        else:
+            logger.warning(f"Unexpected batch SHAP values shape: {batch_shap_values.shape}")
+            return batch_shap_values.flatten()[:n_features]
+    
+    def _extract_multitarget_expected_value(self, target_idx: int) -> float:
+        """
+        Extract expected value for a specific target in multi-target regression.
+        
+        Returns:
+            Expected value for the target
+        """
+        if isinstance(self.expected_value, np.ndarray) and len(self.expected_value) > target_idx:
+            return float(self.expected_value[target_idx])
+        else:
+            return float(self.expected_value)
+    
+    def _extract_multitarget_prediction(
+        self, 
+        predictions: Union[float, np.ndarray], 
+        sample_idx: int, 
+        target_idx: int
+    ) -> float:
+        """
+        Extract prediction for a specific sample and target in multi-target regression.
+        
+        Returns:
+            Prediction value for the specified sample and target
+        """
+        if isinstance(predictions, np.ndarray) and predictions.ndim > 1:
+            return float(predictions[sample_idx, target_idx])
+        elif isinstance(predictions, np.ndarray) and len(predictions) > sample_idx:
+            if hasattr(predictions[sample_idx], '__len__') and len(predictions[sample_idx]) > target_idx:
+                return float(predictions[sample_idx][target_idx])
             else:
-                # Single-target regression case
-                self.shap_values = batch_shap_values
-                shap_values_to_analyze = batch_shap_values
-                expected_value = self.expected_value
-                
-                # Prepare original batch data for each sample (single-target case)
-                original_samples = []
-                if original_batch_data is not None:
-                    if isinstance(original_batch_data, pd.DataFrame):
-                        original_samples = [original_batch_data.iloc[i:i+1] for i in range(min(len(original_batch_data), X_batch.shape[0]))]
-                    elif isinstance(original_batch_data, list):
-                        original_samples = original_batch_data[:X_batch.shape[0]]
-                    elif isinstance(original_batch_data, np.ndarray):
-                        original_samples = [original_batch_data[i:i+1] for i in range(X_batch.shape[0])]
-                    else:
-                        original_samples = [None] * X_batch.shape[0]
-                else:
-                    original_samples = [None] * X_batch.shape[0]
-                
-                # Create detailed results for each sample
-                sample_results = []
-                for i in range(X_batch.shape[0]):
-                    sample_result = self._create_single_target_results(
-                        i, expected_value, 
-                        float(predictions[i]) if hasattr(predictions, '__len__') else float(predictions),
-                        shap_values_to_analyze[i], 
-                        X_batch[i:i+1], feature_names, model, X_background,
-                        target_name=target_names[0] if target_names else None,
-                        original_sample_data=original_samples[i]
-                    )
-                    sample_results.append(sample_result)
-                
-                # Calculate original scale batch statistics if preprocessor is available (single-target regression)
-                original_scale_predictions = predictions
-                original_scale_expected_value = expected_value
-                
-                if hasattr(self, 'preprocessor') and self.preprocessor is not None:
-                    try:
-                        # Transform batch predictions to original scale
-                        pred_array = np.array(predictions)
-                        if pred_array.ndim == 1:
-                            pred_array = pred_array.reshape(-1, 1)
-                        original_pred_transformed = self.preprocessor.inverse_transform_target(pred_array)
-                        original_scale_predictions = original_pred_transformed.ravel() if original_pred_transformed.shape[1] == 1 else original_pred_transformed
-                        
-                        # Transform expected value to original scale
-                        if isinstance(expected_value, np.ndarray) and expected_value.ndim > 0:
-                            if expected_value.ndim == 1:
-                                expected_array = expected_value.reshape(-1, 1)
-                            else:
-                                expected_array = expected_value
-                        else:
-                            expected_array = np.array([[float(expected_value)]])
-                        original_expected_transformed = self.preprocessor.inverse_transform_target(expected_array)
-                        original_scale_expected_value = float(original_expected_transformed[0])
-                        
-                        logger.info(f"Transformed batch mean prediction from {np.mean(predictions)} to original scale: {np.mean(original_scale_predictions)}")
-                    except Exception as e:
-                        logger.warning(f"Failed to transform batch predictions to original scale: {e}")
-                        original_scale_predictions = predictions
-                        original_scale_expected_value = expected_value
-
-                # Create batch summary
-                results = {
-                    'batch_size': X_batch.shape[0],
-                    'is_multi_target': False,
-                    'expected_value': float(expected_value),
-                    'expected_value_original_scale': float(original_scale_expected_value),
-                    'sample_results': sample_results,
-                    'batch_summary': {
-                        'mean_prediction': float(np.mean(predictions)),
-                        'mean_prediction_original_scale': float(np.mean(original_scale_predictions)),
-                        'prediction_std': float(np.std(predictions)),
-                        'prediction_std_original_scale': float(np.std(original_scale_predictions)),
-                        'top_features_across_batch': self._get_top_features_across_batch(sample_results)
-                    },
-                    'analysis_metadata': {
-                        'timestamp': datetime.now().isoformat(),
-                        'n_features': len(feature_names),
-                        'model_type': type(model).__name__,
-                        'background_samples': X_background.shape[0],
-                        'has_original_scale_values': hasattr(self, 'preprocessor') and self.preprocessor is not None,
-                        'analysis_based_on_preprocessed_data': True,
-                        'data_preprocessing_note': 'SHAP analysis is performed on preprocessed (scaled/normalized) feature values. Original values are provided for reference.'
-                    }
-                }
-            
-            # Store analysis timestamp
-            self.analysis_timestamp = results['analysis_metadata']['timestamp']
-            
-            logger.info(f"Batch local importance analysis completed for {X_batch.shape[0]} samples")
-            
-            return results
-            
-        except Exception as e:
-            logger.error(f"Error in batch importance analysis: {str(e)}")
-            raise
+                return float(predictions[sample_idx])
+        else:
+            return float(predictions)
     
     def _create_single_target_results(
         self,
@@ -914,7 +957,9 @@ class LocalFeatureImportanceAnalyzer:
         model,
         X_background: np.ndarray,
         target_name: Optional[str] = None,
-        original_sample_data: Optional[Union[np.ndarray, pd.DataFrame, Dict[str, float], List[float]]] = None
+        original_sample_data: Optional[Union[np.ndarray, pd.DataFrame, Dict[str, float], List[float]]] = None,
+        class_prediction_label: Optional[int] = None,
+        is_batch: bool = False
     ) -> Dict[str, Any]:
         """
         Create results dictionary for a single target.
@@ -930,6 +975,7 @@ class LocalFeatureImportanceAnalyzer:
             X_background: Background data
             target_name: Name of the target (for multi-target)
             original_sample_data: Original sample data before preprocessing
+            class_prediction: Class label for classification tasks
             
         Returns:
             Dictionary with single target results
@@ -1070,15 +1116,39 @@ class LocalFeatureImportanceAnalyzer:
         else:
             original_base_value_display = float(original_base_value)
         
-        results = {
+        if is_batch:
+            results = {
             'sample_index': sample_index or 0,
             'target_name': target_name,
             'base_value': base_value_display,
             'base_value_original_scale': original_base_value_display,
-            'prediction': prediction,
-            'prediction_original_scale': original_prediction,
-            'feature_contributions': feature_contributions,
-            'analysis_metadata': {
+                'prediction': prediction
+            }
+            #分类任务显示预测的类别标签
+            if class_prediction_label:
+                results['prediction_class_label'] = class_prediction_label
+            else:
+            #回归任务显示预测的原始值
+                results['prediction_original_scale'] = original_prediction
+
+            results['feature_contributions'] = feature_contributions
+
+        else:
+            results = {
+                'sample_index': sample_index or 0,
+                'target_name': target_name,
+                'base_value': base_value_display,
+                'base_value_original_scale': original_base_value_display,
+                'prediction': prediction
+            }
+            if class_prediction_label:
+                results['prediction_class_label'] = class_prediction_label
+            else:
+                results['prediction_original_scale'] = original_prediction
+
+            results['feature_contributions'] = feature_contributions
+
+            results['analysis_metadata'] = {
                 'timestamp': datetime.now().isoformat(),
                 'n_features': len(feature_names),
                 'model_type': type(model).__name__,
@@ -1086,7 +1156,6 @@ class LocalFeatureImportanceAnalyzer:
                 'has_original_scale_values': hasattr(self, 'preprocessor') and self.preprocessor is not None,
                 'analysis_based_on_preprocessed_data': True,
                 'data_preprocessing_note': 'SHAP analysis is performed on preprocessed (scaled/normalized) feature values. Original values are provided for reference.'
-            }
         }
         
         return results
@@ -1100,222 +1169,149 @@ class LocalFeatureImportanceAnalyzer:
         target_index: Optional[int] = None
     ) -> str:
         """
-        Create SHAP waterfall plot for a specific sample.
-        For multi-target models, creates plots for each target.
+        Create SHAP waterfall plot for a specific sample and target.
+        Simplified version that relies on external loops for multi-target/multi-sample handling.
         
         Args:
             sample_index: Index of sample to visualize
             figsize: Figure size for the plot
             save_plot: Whether to save the plot to disk
             max_display: Maximum number of features to display
-            target_index: For multi-target models, which target to plot (None = all targets)
+            target_index: Target index for multi-target models (None for single-target)
             
         Returns:
-            Path to saved plot file or "displayed"
+            Path to saved plot file or error message
         """
-        # print("*"*100)
-        # print("sample_index",sample_index)
-        # print("target_index",target_index)
-        # print("*"*100)
+        print(".... create_waterfall_plot",target_index)
+
         if not SHAP_AVAILABLE:
             return "SHAP not available"
         
         if self.shap_values is None:
             logger.error("No SHAP values available. Run analysis first.")
             return "No SHAP values"
+            
+        if not hasattr(self, 'task_config') or self.task_config is None:
+            logger.error("No task configuration available.")
+            return "No task config"
         
         try:
-            logger.info(f"Creating waterfall plot for sample {sample_index}...")
+            logger.info(f"Creating waterfall plot for sample {sample_index}, target {target_index}...")
             
-            # DEBUG: Print SHAP values structure
-            print(f"DEBUG: SHAP values type: {type(self.shap_values)}")
-            if isinstance(self.shap_values, list):
-                print(f"DEBUG: SHAP values list length: {len(self.shap_values)}")
-                print(f"DEBUG: SHAP values[0] shape: {self.shap_values[0].shape if hasattr(self.shap_values[0], 'shape') else 'no shape'}")
-            elif hasattr(self.shap_values, 'shape'):
-                print(f"DEBUG: SHAP values shape: {self.shap_values.shape}")
+            # Use task_config to determine how to extract SHAP values
+            if self.task_config['task_type'] == 'classification':
+                shap_values, expected_value = self._extract_classification_waterfall_data(sample_index, target_index)
+                target_name = self._get_classification_target_name(target_index)
+            else:  # regression
+                print(">>> 是回归")
+                print(self.task_config)
+                shap_values, expected_value = self._extract_regression_waterfall_data(sample_index, target_index)
+                target_name = self._get_regression_target_name(target_index)
+            print(".......",)
+            return self._create_single_waterfall_plot(
+                shap_values, expected_value, sample_index, 
+                figsize, save_plot, max_display, target_name, target_index
+            )
             
-            # Handle multi-output case
-            if isinstance(self.shap_values, list):
-                # print("*"*100)
-                # print("list")
-                # print("*"*100)
-                # Classification case
-                if len(self.shap_values) == 2:
-                    # Binary classification - use positive class
-                    print("*"*100)
-                    print("self.shap_values",self.shap_values)
-                    print("Binary classification")
-                    print("*"*100)
-                    shap_values_to_plot = self.shap_values[1]
-                    expected_value = self.expected_value[1] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    
-                    print(f"DEBUG: Binary classification detected")
-                    print(f"DEBUG: Has model_metadata: {hasattr(self, 'model_metadata')}")
-                    if hasattr(self, 'model_metadata'):
-                        print(f"DEBUG: model_metadata: {self.model_metadata}")
-                    
-                    # Generate intelligent class label for positive class (index 1)
-                    if (hasattr(self, 'model_metadata') and self.model_metadata and 
-                        self.model_metadata.get('task_type') == 'classification'):
-                        target_column_name = self.model_metadata.get('target_column', 
-                                             self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                        print(f"DEBUG: target_column_name extracted: {target_column_name}")
-                        target_name = self._get_intelligent_class_label(1, target_column_name)
-                        print(f"DEBUG: Generated intelligent target_name: {target_name}")
-                    else:
-                        target_name = self._get_target_name(1)
-                        print(f"DEBUG: Generated fallback target_name: {target_name}")
-                    
-                    print("*"*100)
-                    print("target_name",target_name)
-                    print("*"*100)
-                    # Single plot for binary classification
-                    return self._create_single_waterfall_plot(
-                        shap_values_to_plot, expected_value, sample_index, 
-                        figsize, save_plot, max_display, target_name
-                    )
-                else:
-                    # Multi-class - use first class
-                    shap_values_to_plot = self.shap_values[0]
-                    expected_value = self.expected_value[0] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    
-                    print(f"DEBUG: Multi-class classification detected")
-                    print(f"DEBUG: Has model_metadata: {hasattr(self, 'model_metadata')}")
-                    if hasattr(self, 'model_metadata'):
-                        print(f"DEBUG: model_metadata: {self.model_metadata}")
-                    
-                    # Generate intelligent class label for first class (index 0)
-                    if (hasattr(self, 'model_metadata') and self.model_metadata and 
-                        self.model_metadata.get('task_type') == 'classification'):
-                        target_column_name = self.model_metadata.get('target_column', 
-                                             self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                        print(f"DEBUG: target_column_name extracted: {target_column_name}")
-                        target_name = self._get_intelligent_class_label(0, target_column_name)
-                        print(f"DEBUG: Generated intelligent target_name: {target_name}")
-                    else:
-                        target_name = self._get_target_name(0)
-                        print(f"DEBUG: Generated fallback target_name: {target_name}")
-                    # print("*"*100)
-                    # print("target_name",target_name)
-                    # print("*"*100)
-                    # Single plot for multi-class classification
-                    return self._create_single_waterfall_plot(
-                        shap_values_to_plot, expected_value, sample_index, 
-                        figsize, save_plot, max_display, target_name
-                    )
-                
-            elif self.shap_values.ndim == 3:
-                # Check if this is binary classification: shape (n_samples, n_features, 2)
-                n_samples, n_features, n_targets = self.shap_values.shape
-                # print("*"*100)
-                # print("ndm",3)
-                # print("*"*100)
-                if (n_targets == 2 and 
-                    hasattr(self, 'model_metadata') and 
-                    self.model_metadata and 
-                    self.model_metadata.get('task_type') == 'classification'):
-                    print(f"DEBUG: Binary classification with 3D SHAP values detected")
-                    print("*"*100)
-                    print("Binary classification")
-                    print("*"*100)
-                    # Binary classification - use positive class (index 1)
-                    shap_values_to_plot = self.shap_values[:, :, 1]  # Select positive class
-                    expected_value = self.expected_value[1] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    
-                    # Generate intelligent class label for positive class (index 1)
-                    target_column_name = self.model_metadata.get('target_column', 
-                                         self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                    print(f"DEBUG: target_column_name extracted: {target_column_name}")
-                    target_name = self._get_intelligent_class_label(1, target_column_name)
-                    print(f"DEBUG: Generated intelligent target_name: {target_name}")
-                    
-                    # Single plot for binary classification
-                    return self._create_single_waterfall_plot(
-                        shap_values_to_plot, expected_value, sample_index, 
-                        figsize, save_plot, max_display, target_name
-                    )
-                    
-                # Multi-target regression case: shape (n_samples, n_features, n_targets)
-                
-                if target_index is not None:
-                    # print("*"*100)
-                    # print("target_index is not None")
-                    # print("*"*100)
-                    # Plot specific target
-                    if target_index >= n_targets:
-                        logger.error(f"Target index {target_index} out of range (max: {n_targets-1})")
-                        return "Target index out of range"
-                    
-                    target_shap = self.shap_values[sample_index, :, target_index]
-                    target_expected = self.expected_value[target_index] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    # target_name = self._get_target_name(target_index)
-                    target_column_name = self.model_metadata.get('target_column', 
-                                            self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                    target_name = self._get_intelligent_class_label(target_index, target_column_name)
-                    # print("*"*100)
-                    # print("target_name",target_name)
-                    # print("*"*100)
-
-                    return self._create_single_waterfall_plot(
-                        target_shap.reshape(1, -1), target_expected, 0,
-                        figsize, save_plot, max_display, target_name
-                    )
-                else:
-                    # Check if this is multi-class classification with 3D SHAP values
-                    if (hasattr(self, 'model_metadata') and 
-                        self.model_metadata and 
-                        self.model_metadata.get('task_type') == 'classification'):
-                        print(f"DEBUG: Multi-class classification with 3D SHAP values detected - {n_targets} classes")
-                        
-                        # Create plots for all targets (classes)
-                        plot_paths = []
-                        for target_idx in range(min(n_targets, 10)):  # Limit to first 6 targets
-                            target_shap = self.shap_values[sample_index, :, target_idx]
-                            target_expected = self.expected_value[target_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                            
-                            # Generate intelligent class label for each class
-                            target_column_name = self.model_metadata.get('target_column', 
-                                                 self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                            target_name = self._get_intelligent_class_label(target_idx, target_column_name)
-                            # print("*"*100)
-                            # print("plot_target_name",target_name)
-                            # print("*"*100)
-                            # print(f"DEBUG: Generated intelligent target_name for class {target_idx}: {target_name}")
-                            
-                            plot_path = self._create_single_waterfall_plot(
-                                target_shap.reshape(1, -1), target_expected, 0,
-                                figsize, save_plot, max_display, target_name, sample_index
-                            )
-                            plot_paths.append(plot_path)
-                        
-                        return "; ".join(plot_paths)
-                    else:
-                        # Multi-target regression case
-                        plot_paths = []
-                        for target_idx in range(min(n_targets, 10)):  # Limit to first 6 targets
-                            target_shap = self.shap_values[sample_index, :, target_idx]
-                            target_expected = self.expected_value[target_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                            target_name = self._get_target_name(target_idx)
-                            
-                            plot_path = self._create_single_waterfall_plot(
-                                target_shap.reshape(1, -1), target_expected, 0,
-                                figsize, save_plot, max_display, target_name, sample_index
-                            )
-                            plot_paths.append(plot_path)
-                        
-                        return "; ".join(plot_paths)
-            else:
-                # Single-target regression case
-                return self._create_single_waterfall_plot(
-                    self.shap_values, self.expected_value, sample_index,
-                    figsize, save_plot, max_display
-                )
-                
         except Exception as e:
             logger.error(f"Error creating waterfall plot: {str(e)}")
-            plt.close()
             return f"Error: {str(e)}"
+    
+    def _extract_classification_waterfall_data(self, sample_index: int, target_index: Optional[int]) -> Tuple[np.ndarray, float]:
+        """Extract SHAP values and expected value for classification waterfall plot."""
+        if isinstance(self.shap_values, list):
+            # List format: binary/multiclass classification
+            if self.task_config.get('is_binary_classification', False):
+                # Binary classification - use positive class (index 1)
+                class_idx = 1
+            else:
+                # Multiclass - use first class or specified target
+                class_idx = target_index if target_index is not None else 0
+            
+            shap_values = self.shap_values[class_idx][sample_index:sample_index+1]
+            expected_value = self.expected_value[class_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+            
+        else:
+            # Array format: check dimensionality
+            if self.shap_values.ndim == 3:
+                # 3D array format: (n_samples, n_features, n_classes)
+                if self.task_config.get('is_binary_classification', False):
+                    # Binary classification - use positive class (index 1)
+                    class_idx = 1
+                else:
+                    # Multiclass - use specified target or first class
+                    class_idx = target_index if target_index is not None else 0
+                
+                shap_values = self.shap_values[sample_index:sample_index+1, :, class_idx]
+                expected_value = self.expected_value[class_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+            
+            elif self.shap_values.ndim == 2:
+                # 2D array format: (n_samples, n_features) - for binary classification with single output
+                shap_values = self.shap_values[sample_index:sample_index+1]
+                expected_value = self.expected_value if not isinstance(self.expected_value, np.ndarray) else self.expected_value[0]
+            
+            else:
+                raise ValueError(f"Unsupported SHAP values dimensionality: {self.shap_values.ndim}")
+        
+        return shap_values, expected_value
+    
+    def _extract_regression_waterfall_data(self, sample_index: int, target_index: Optional[int]) -> Tuple[np.ndarray, float]:
+        """Extract SHAP values and expected value for regression waterfall plot."""
+        if self.task_config.get('is_multi_target', False):
+            # Multi-target regression
+            if target_index is None:
+                target_index = 0  # Default to first target if not specified
+                
+            if self.shap_values.ndim == 3:
+                # Format: (n_samples, n_features, n_targets)
+                shap_values = self.shap_values[sample_index:sample_index+1, :, target_index]
+            elif self.shap_values.ndim == 2:
+                # Format: (n_features, n_targets) - single sample case
+                shap_values = self.shap_values[:, target_index:target_index+1].T  # Shape: (1, n_features)
+            else:
+                raise ValueError(f"Unsupported SHAP values dimensionality for multi-target: {self.shap_values.ndim}")
+                
+            expected_value = self.expected_value[target_index] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+        else:
+            # Single-target regression
+            if self.shap_values.ndim == 2:
+                shap_values = self.shap_values[sample_index:sample_index+1]
+            elif self.shap_values.ndim == 1:
+                # Single sample case
+                shap_values = self.shap_values.reshape(1, -1)
+            else:
+                raise ValueError(f"Unsupported SHAP values dimensionality for single-target: {self.shap_values.ndim}")
+                
+            expected_value = self.expected_value if not isinstance(self.expected_value, np.ndarray) else self.expected_value[0]
+        
+        return shap_values, expected_value
+    
+    def _get_classification_target_name(self, target_index: Optional[int]) -> str:
+        """Get target name for classification task."""
+        if self.task_config.get('is_binary_classification', False):
+            class_idx = 1  # Positive class for binary classification
+        else:
+            class_idx = target_index if target_index is not None else 0
+        
+        if hasattr(self, 'model_metadata') and self.model_metadata:
+            target_column_name = self.model_metadata.get('target_column')
+            return self._get_intelligent_class_label(class_idx, target_column_name)
+        else:
+            return self._get_target_name(class_idx)
+    
+    def _get_regression_target_name(self, target_index: Optional[int]) -> str:
+        """Get target name for regression task."""
+        print(">>> _get_regression_target_name")
+        print("target_index",target_index)
+        if self.task_config.get('is_multi_target', False):
+            idx = target_index if target_index is not None else 0
+            target_names = self.task_config.get('target_names', [])
+            return target_names[idx] if idx < len(target_names) else f"Target_{idx}"
+        else:
+            print(">>>>>>>>> 单目标")
+            target_names = self.task_config.get('target_names')[0]
+            print(">>> target_names",target_names)
+            return target_names
     
     def _create_single_waterfall_plot(
         self,
@@ -1326,9 +1322,11 @@ class LocalFeatureImportanceAnalyzer:
         save_plot: bool,
         max_display: int,
         target_name: str = "",
+        target_index: Optional[int] = None,
         original_sample_index: Optional[int] = None
     ) -> str:
         """Create a single waterfall plot for one target."""
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         try:
             print(f"DEBUG: _create_single_waterfall_plot called with:")
             print(f"DEBUG:   target_name: '{target_name}'")
@@ -1337,13 +1335,13 @@ class LocalFeatureImportanceAnalyzer:
             print(f"DEBUG:   save_plot: {save_plot}")
             
             plt.figure(figsize=figsize)
+            print(">>> shap_values",shap_values)
             
-            if sample_index < len(shap_values):
-                sample_shap = shap_values[sample_index]
-                sample_data = self.X_data[original_sample_index or sample_index] if hasattr(self, 'X_data') and sample_index < len(self.X_data) else None
+            sample_shap = shap_values[0]
+            sample_data = self.X_data[original_sample_index or sample_index] if hasattr(self, 'X_data') and sample_index < len(self.X_data) else None
                 
                 # Use SHAP's waterfall plot
-                shap.plots.waterfall(
+            shap.plots.waterfall(
                     shap.Explanation(
                         values=sample_shap,
                         base_values=expected_value,
@@ -1355,16 +1353,14 @@ class LocalFeatureImportanceAnalyzer:
                 )
                 
                 # Add target name to title if provided
-                if target_name:
-                    plt.title(f"SHAP Waterfall Plot - Sample {original_sample_index or sample_index} - {target_name}")
-                    print(f"DEBUG: Set plot title with target_name: {target_name}")
-            else:
-                logger.error(f"Sample index {sample_index} out of range")
-                return "Index out of range"
+            if target_name:
+                plt.title(f"SHAP Waterfall Plot - Sample {sample_index} - {target_name}")
+                print(f"DEBUG: Set plot title with target_name: {target_name}")
+
             
             if save_plot:
                 target_suffix = f"_{target_name}" if target_name else ""
-                filename = f"waterfall_plot_sample_{original_sample_index or sample_index}{target_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                filename = f"waterfall_plot_sample_{sample_index}{target_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
                 print(f"DEBUG: Generated filename: {filename}")
                 print(f"DEBUG: target_suffix used: '{target_suffix}'")
                 filepath = self.output_dir / filename
@@ -1391,14 +1387,13 @@ class LocalFeatureImportanceAnalyzer:
     ) -> str:
         """
         Create SHAP force plot for a specific sample.
-        For multi-target models, creates plots for each target.
         
         Args:
             sample_index: Index of sample to visualize
             figsize: Figure size for the plot
             save_plot: Whether to save the plot to disk
             matplotlib: Whether to use matplotlib backend
-            target_index: For multi-target models, which target to plot (None = all targets)
+            target_index: For multi-target models, which target to plot
             
         Returns:
             Path to saved plot file or "displayed"
@@ -1410,161 +1405,29 @@ class LocalFeatureImportanceAnalyzer:
         if self.shap_values is None:
             logger.error("No SHAP values available. Run analysis first.")
             return "No SHAP values"
+            
+        if not hasattr(self, 'task_config') or self.task_config is None:
+            logger.error("No task configuration available.")
+            return "No task config"
         
         try:
-            logger.info(f"Creating force plot for sample {sample_index}...")
+            logger.info(f"Creating force plot for sample {sample_index}, target {target_index}...")
             
-            # Handle multi-output case
-            if isinstance(self.shap_values, list):
-                # Classification case
-                if len(self.shap_values) == 2:
-                    # Binary classification - use positive class
-                    shap_values_to_plot = self.shap_values[1]
-                    expected_value = self.expected_value[1] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    
-                    print(f"DEBUG FORCE: Binary classification detected")
-                    
-                    # Generate intelligent class label for positive class (index 1)
-                    if (hasattr(self, 'model_metadata') and self.model_metadata and 
-                        self.model_metadata.get('task_type') == 'classification'):
-                        target_column_name = self.model_metadata.get('target_column', 
-                                             self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                        target_name = self._get_intelligent_class_label(1, target_column_name)
-                        print(f"DEBUG FORCE: Generated intelligent target_name: {target_name}")
-                    else:
-                        target_name = self._get_target_name(1)
-                        print(f"DEBUG FORCE: Generated fallback target_name: {target_name}")
-                    
-                    # Single plot for binary classification
-                    return self._create_single_force_plot(
-                        shap_values_to_plot, expected_value, sample_index,
-                        figsize, save_plot, matplotlib, target_name
-                    )
-                else:
-                    # Multi-class - use first class
-                    shap_values_to_plot = self.shap_values[0]
-                    expected_value = self.expected_value[0] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    
-                    # Generate intelligent class label for first class (index 0)
-                    if (hasattr(self, 'model_metadata') and self.model_metadata and 
-                        self.model_metadata.get('task_type') == 'classification'):
-                        target_column_name = self.model_metadata.get('target_column', 
-                                             self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                        target_name = self._get_intelligent_class_label(0, target_column_name)
-                    else:
-                        target_name = self._get_target_name(0)
-                    
-                    # Single plot for multi-class classification
-                    return self._create_single_force_plot(
-                        shap_values_to_plot, expected_value, sample_index,
-                        figsize, save_plot, matplotlib, target_name
-                    )
-                
-            elif self.shap_values.ndim == 3:
-                # Check if this is binary classification: shape (n_samples, n_features, 2)
-                n_samples, n_features, n_targets = self.shap_values.shape
-                
-                if (n_targets == 2 and 
-                    hasattr(self, 'model_metadata') and 
-                    self.model_metadata and 
-                    self.model_metadata.get('task_type') == 'classification'):
-                    print(f"DEBUG FORCE: Binary classification with 3D SHAP values detected")
-                    
-                    # Binary classification - use positive class (index 1)
-                    shap_values_to_plot = self.shap_values[:, :, 1]  # Select positive class
-                    expected_value = self.expected_value[1] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    
-                    # Generate intelligent class label for positive class (index 1)
-                    target_column_name = self.model_metadata.get('target_column', 
-                                         self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                    target_name = self._get_intelligent_class_label(1, target_column_name)
-                    print("*"*100)
-                    print("target_name",target_name)
-                    print("*"*100)
-                    print(f"DEBUG FORCE: Generated intelligent target_name: {target_name}")
-                    
-                    # Single plot for binary classification
-                    return self._create_single_force_plot(
-                        shap_values_to_plot, expected_value, sample_index,
-                        figsize, save_plot, matplotlib, target_name
-                    )
-                    
-                # Multi-target regression case: shape (n_samples, n_features, n_targets)
-                
-                if target_index is not None:
-                    # Plot specific target
-                    if target_index >= n_targets:
-                        logger.error(f"Target index {target_index} out of range (max: {n_targets-1})")
-                        return "Target index out of range"
-                    
-                    target_shap = self.shap_values[sample_index, :, target_index]
-                    target_expected = self.expected_value[target_index] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    # Generate intelligent class label for positive class (index 1)
-                    target_column_name = self.model_metadata.get('target_column', 
-                                         self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                    print(f"DEBUG: target_column_name extracted: {target_column_name}")
-                    target_name = self._get_intelligent_class_label(target_index, target_column_name)
-                    print("*"*100)
-                    print("target_name",target_name)
-                    print("*"*100)
-                    print(f"DEBUG: Generated intelligent target_name: {target_name}")
-                    
-                    return self._create_single_force_plot(
-                        target_shap.reshape(1, -1), target_expected, 0,
-                        figsize, save_plot, matplotlib, target_name, sample_index
-                    )
-                else:
-                    # Check if this is multi-class classification with 3D SHAP values
-                    if (hasattr(self, 'model_metadata') and 
-                        self.model_metadata and 
-                        self.model_metadata.get('task_type') == 'classification'):
-                        print(f"DEBUG FORCE: Multi-class classification with 3D SHAP values detected - {n_targets} classes")
-                        
-                        # Create plots for all targets (classes)
-                        plot_paths = []
-                        for target_idx in range(min(n_targets, 6)):  # Limit to first 6 targets
-                            target_shap = self.shap_values[sample_index, :, target_idx]
-                            target_expected = self.expected_value[target_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                            
-                            # Generate intelligent class label for each class
-                            target_column_name = self.model_metadata.get('target_column', 
-                                                 self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                            target_name = self._get_intelligent_class_label(target_idx, target_column_name)
-                            print(f"DEBUG FORCE: Generated intelligent target_name for class {target_idx}: {target_name}")
-                            
-                            plot_path = self._create_single_force_plot(
-                                target_shap.reshape(1, -1), target_expected, 0,
-                                figsize, save_plot, matplotlib, target_name, sample_index
-                            )
-                            plot_paths.append(plot_path)
-                        
-                        return "; ".join(plot_paths)
-                    else:
-                        # Multi-target regression case
-                        plot_paths = []
-                        for target_idx in range(min(n_targets, 6)):  # Limit to first 6 targets
-                            target_shap = self.shap_values[sample_index, :, target_idx]
-                            target_expected = self.expected_value[target_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                            target_name = self._get_target_name(target_idx)
-                            
-                            plot_path = self._create_single_force_plot(
-                                target_shap.reshape(1, -1), target_expected, 0,
-                                figsize, save_plot, matplotlib, target_name, sample_index
-                            )
-                            plot_paths.append(plot_path)
-                        
-                        return "; ".join(plot_paths)
-            else:
-                # Single-target regression case
-                return self._create_single_force_plot(
-                    self.shap_values, self.expected_value, sample_index,
-                    figsize, save_plot, matplotlib
+            # Use task_config to determine how to extract SHAP values
+            if self.task_config['task_type'] == 'classification':
+                shap_values, expected_value = self._extract_classification_force_data(sample_index, target_index)
+                target_name = self._get_classification_target_name(target_index)
+            else:  # regression
+                shap_values, expected_value = self._extract_regression_force_data(sample_index, target_index)
+                target_name = self._get_regression_target_name(target_index)
+            
+            return self._create_single_force_plot(
+                shap_values, expected_value, sample_index,
+                figsize, save_plot, matplotlib, target_name, target_index
                 )
                 
         except Exception as e:
             logger.error(f"Error creating force plot: {str(e)}")
-            if matplotlib:
-                plt.close()
             return f"Error: {str(e)}"
     
     def _create_single_force_plot(
@@ -1576,45 +1439,43 @@ class LocalFeatureImportanceAnalyzer:
         save_plot: bool,
         matplotlib: bool,
         target_name: str = "",
+        target_index: Optional[int] = None,
         original_sample_index: Optional[int] = None
     ) -> str:
         """Create a single force plot for one target."""
         try:
-            print(f"DEBUG FORCE: _create_single_force_plot called with:")
-            print(f"DEBUG FORCE:   target_name: '{target_name}'")
-            print(f"DEBUG FORCE:   sample_index: {sample_index}")
-            print(f"DEBUG FORCE:   matplotlib: {matplotlib}")
+            print(f"DEBUG: _create_single_force_plot called with:")
+            print(f"DEBUG:   target_name: '{target_name}'")
+            print(f"DEBUG:   sample_index: {sample_index}")
+            print(f"DEBUG:   save_plot: {save_plot}")
             
-            if sample_index < len(shap_values):
-                sample_shap = shap_values[sample_index]
-                sample_data = self.X_data[original_sample_index or sample_index] if hasattr(self, 'X_data') and sample_index < len(self.X_data) else None
+            # Simplified SHAP value extraction
+            sample_shap = shap_values[0]
+            sample_data = self.X_data[original_sample_index or sample_index] if hasattr(self, 'X_data') and sample_index < len(self.X_data) else None
                 
-                if matplotlib:
-                    # Use matplotlib backend for better control
-                    plt.figure(figsize=figsize)
-                    
-                    # Create force plot using matplotlib
-                    shap.plots.force(
-                        expected_value,
-                        sample_shap,
-                        sample_data,
-                        feature_names=self.feature_names,
-                        matplotlib=True,
-                        show=False
-                    )
+            if matplotlib:
+                # Use matplotlib backend for better control
+                plt.figure(figsize=figsize)
+                
+                # Create force plot using matplotlib
+                shap.plots.force(
+                    expected_value,
+                    sample_shap,
+                    sample_data,
+                    feature_names=self.feature_names,
+                    matplotlib=True,
+                    show=False
+                )
                     
                     # Add target name to title if provided
-                    if target_name:
-                        print("*"*100)
-                        print("title target_name",target_name)
-                        print("*"*100)
-                        plt.title(f"SHAP Force Plot - Sample {original_sample_index or sample_index} - {target_name}")
-                        print(f"DEBUG FORCE: Set matplotlib plot title with target_name: {target_name}")
+                if target_name:
+                    plt.title(f"SHAP Force Plot - Sample {sample_index} - {target_name}")
+                    print(f"DEBUG: Set matplotlib plot title with target_name: {target_name}")
                     
                     if save_plot:
                         target_suffix = f"_{target_name}" if target_name else ""
-                        filename = f"force_plot_sample_{original_sample_index or sample_index}{target_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                        print(f"DEBUG FORCE: Generated matplotlib filename: {filename}")
+                        filename = f"force_plot_sample_{sample_index}{target_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                        print(f"DEBUG: Generated matplotlib filename: {filename}")
                         filepath = self.output_dir / filename
                         plt.savefig(filepath, dpi=300, bbox_inches='tight')
                         plt.close()
@@ -1634,16 +1495,13 @@ class LocalFeatureImportanceAnalyzer:
                     
                     if save_plot:
                         target_suffix = f"_{target_name}" if target_name else ""
-                        filename = f"force_plot_sample_{original_sample_index or sample_index}{target_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                        filename = f"force_plot_sample_{sample_index}{target_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
                         filepath = self.output_dir / filename
                         shap.save_html(str(filepath), force_plot)
                         logger.info(f"Force plot saved to: {filepath}")
                         return str(filepath)
                     else:
                         return "displayed (HTML)"
-            else:
-                logger.error(f"Sample index {sample_index} out of range")
-                return "Index out of range"
                 
         except Exception as e:
             logger.error(f"Error creating single force plot: {str(e)}")
@@ -1661,23 +1519,22 @@ class LocalFeatureImportanceAnalyzer:
     ) -> str:
         """
         Create SHAP decision plot for one or more samples.
-        For multi-target models, creates plots for each target.
         
         Args:
             sample_indices: Index or list of indices of samples to visualize
             figsize: Figure size for the plot
             save_plot: Whether to save the plot to disk
             max_display: Maximum number of features to display
-            target_index: For multi-target models, which target to plot (None = all targets)
+            target_index: For multi-target models, which target to plot
             
         Returns:
             Path to saved plot file or "displayed"
         """
+        print(">>> 开始创建决策图")
         if not SHAP_AVAILABLE:
             return "SHAP not available"
         
         if self.shap_values is None:
-            logger.error("No SHAP values available. Run analysis first.")
             return "No SHAP values"
         
         try:
@@ -1685,143 +1542,25 @@ class LocalFeatureImportanceAnalyzer:
             if isinstance(sample_indices, int):
                 sample_indices = [sample_indices]
             
-            logger.info(f"Creating decision plot for samples {sample_indices}...")
+            print(f"DEBUG: create_decision_plot called with:")
+            print(f"DEBUG:   sample_indices: {sample_indices}")
+            print(f"DEBUG:   target_index: {target_index}")
             
-            # Handle multi-output case
-            if isinstance(self.shap_values, list):
-                # Classification case
-                if len(self.shap_values) == 2:
-                    # Binary classification - use positive class
-                    shap_values_to_plot = self.shap_values[1]
-                    expected_value = self.expected_value[1] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    
-                    # Generate intelligent class label for positive class (index 1)
-                    if (hasattr(self, 'model_metadata') and self.model_metadata and 
-                        self.model_metadata.get('task_type') == 'classification'):
-                        target_column_name = self.model_metadata.get('target_column', 
-                                             self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                        target_name = self._get_intelligent_class_label(1, target_column_name)
-                    else:
-                        target_name = self._get_target_name(1)
-                else:
-                    # Multi-class - use first class
-                    shap_values_to_plot = self.shap_values[0]
-                    expected_value = self.expected_value[0] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    
-                    # Generate intelligent class label for first class (index 0)
-                    if (hasattr(self, 'model_metadata') and self.model_metadata and 
-                        self.model_metadata.get('task_type') == 'classification'):
-                        target_column_name = self.model_metadata.get('target_column', 
-                                             self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                        target_name = self._get_intelligent_class_label(0, target_column_name)
-                    else:
-                        target_name = self._get_target_name(0)
-                
-                # Single plot for classification
-                return self._create_single_decision_plot(
-                    shap_values_to_plot, expected_value, sample_indices,
+            # Extract data based on task type
+            if self.task_config.get('task_type') == 'classification':
+                print("分类任务")
+                shap_values, expected_value, target_name = self._extract_classification_decision_data(sample_indices, target_index)
+            else:
+                shap_values, expected_value, target_name = self._extract_regression_decision_data(sample_indices, target_index)
+            
+            # Create single decision plot
+            return self._create_single_decision_plot(
+                shap_values, expected_value, sample_indices,
                     figsize, save_plot, max_display, target_name
                 )
                 
-            elif self.shap_values.ndim == 3:
-                # Check if this is binary classification: shape (n_samples, n_features, 2)
-                n_samples, n_features, n_targets = self.shap_values.shape
-                
-                if (n_targets == 2 and 
-                    hasattr(self, 'model_metadata') and 
-                    self.model_metadata and 
-                    self.model_metadata.get('task_type') == 'classification'):
-                    print(f"DEBUG DECISION: Binary classification with 3D SHAP values detected")
-                    
-                    # Binary classification - use positive class (index 1)
-                    shap_values_to_plot = self.shap_values[:, :, 1]  # Select positive class
-                    expected_value = self.expected_value[1] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    
-                    # Generate intelligent class label for positive class (index 1)
-                    target_column_name = self.model_metadata.get('target_column', 
-                                         self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                    target_name = self._get_intelligent_class_label(1, target_column_name)
-                    print(f"DEBUG DECISION: Generated intelligent target_name: {target_name}")
-                    
-                    # Single plot for binary classification
-                    return self._create_single_decision_plot(
-                        shap_values_to_plot, expected_value, sample_indices,
-                        figsize, save_plot, max_display, target_name
-                    )
-                    
-                # Multi-target regression case: shape (n_samples, n_features, n_targets)
-                
-                if target_index is not None:
-                    # Plot specific target
-                    if target_index >= n_targets:
-                        logger.error(f"Target index {target_index} out of range (max: {n_targets-1})")
-                        return "Target index out of range"
-                    
-                    # Extract SHAP values for the specific target
-                    target_shap = self.shap_values[:, :, target_index]
-                    target_expected = self.expected_value[target_index] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                    # Generate intelligent class label for positive class (index 1)
-                    target_column_name = self.model_metadata.get('target_column', 
-                                         self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                    print(f"DEBUG: target_column_name extracted: {target_column_name}")
-                    target_name = self._get_intelligent_class_label(target_index, target_column_name)
-                    print(f"DEBUG: Generated intelligent target_name: {target_name}")
-                    
-                    return self._create_single_decision_plot(
-                        target_shap, target_expected, sample_indices,
-                        figsize, save_plot, max_display, target_name
-                    )
-                else:
-                    # Check if this is multi-class classification with 3D SHAP values
-                    if (hasattr(self, 'model_metadata') and 
-                        self.model_metadata and 
-                        self.model_metadata.get('task_type') == 'classification'):
-                        print(f"DEBUG DECISION: Multi-class classification with 3D SHAP values detected - {n_targets} classes")
-                        
-                        # Create plots for all targets (classes)
-                        plot_paths = []
-                        for target_idx in range(min(n_targets, 6)):  # Limit to first 6 targets
-                            target_shap = self.shap_values[:, :, target_idx]
-                            target_expected = self.expected_value[target_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                            
-                            # Generate intelligent class label for each class
-                            target_column_name = self.model_metadata.get('target_column', 
-                                                 self.model_metadata.get('target_name', [None])[0] if isinstance(self.model_metadata.get('target_name', []), list) else None)
-                            target_name = self._get_intelligent_class_label(target_idx, target_column_name)
-                            print(f"DEBUG DECISION: Generated intelligent target_name for class {target_idx}: {target_name}")
-                            
-                            plot_path = self._create_single_decision_plot(
-                                target_shap, target_expected, sample_indices,
-                                figsize, save_plot, max_display, target_name
-                            )
-                            plot_paths.append(plot_path)
-                        
-                        return "; ".join(plot_paths)
-                    else:
-                        # Multi-target regression case
-                        plot_paths = []
-                        for target_idx in range(min(n_targets, 6)):  # Limit to first 6 targets
-                            target_shap = self.shap_values[:, :, target_idx]
-                            target_expected = self.expected_value[target_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
-                            target_name = self._get_target_name(target_idx)
-                            
-                            plot_path = self._create_single_decision_plot(
-                                target_shap, target_expected, sample_indices,
-                                figsize, save_plot, max_display, target_name
-                            )
-                            plot_paths.append(plot_path)
-                        
-                        return "; ".join(plot_paths)
-            else:
-                # Single-target regression case
-                return self._create_single_decision_plot(
-                    self.shap_values, self.expected_value, sample_indices,
-                    figsize, save_plot, max_display
-                )
-                
         except Exception as e:
-            logger.error(f"Error creating decision plot: {str(e)}")
-            plt.close()
+            print(f"DEBUG: Error in create_decision_plot: {str(e)}")
             return f"Error: {str(e)}"
     
     def _create_single_decision_plot(
@@ -1836,10 +1575,14 @@ class LocalFeatureImportanceAnalyzer:
     ) -> str:
         """Create a single decision plot for one target."""
         try:
+            print(f"DEBUG: _create_single_decision_plot called with:")
+            print(f"DEBUG:   target_name: '{target_name}'")
+            print(f"DEBUG:   sample_indices: {sample_indices}")
+            print(f"DEBUG:   save_plot: {save_plot}")
+            
             # Validate sample indices
-            valid_indices = [i for i in sample_indices if i < len(shap_values)]
+            valid_indices = [i for i in sample_indices if 0 <= i < len(shap_values)]
             if not valid_indices:
-                logger.error("No valid sample indices provided")
                 return "No valid indices"
             
             # Extract SHAP values for selected samples
@@ -1848,6 +1591,15 @@ class LocalFeatureImportanceAnalyzer:
             # Create the decision plot
             plt.figure(figsize=figsize)
             
+            # Prepare colors for multiple samples
+            sample_colors = None
+            if len(valid_indices) > 1:
+                print(">>> 多种样品对比")
+                # Use tab10 colormap for up to 10 samples, then cycle through
+                colors = plt.cm.tab10(np.linspace(0, 1, 10))
+                sample_colors = [colors[i % 10] for i in range(len(valid_indices))]
+            
+            # Create the decision plot
             shap.decision_plot(
                 expected_value,
                 selected_shap,
@@ -1856,11 +1608,58 @@ class LocalFeatureImportanceAnalyzer:
                 show=False
             )
             
-            # Add title
+            # For multiple samples, manually set colors after plotting
+            if sample_colors is not None:
+                ax = plt.gca()
+                lines = ax.get_lines()
+                print(f"DEBUG: Found {len(lines)} lines for {len(valid_indices)} samples")
+                
+                # Filter lines to find the actual decision paths
+                # Decision lines typically have specific characteristics
+                decision_lines = []
+                for line in lines:
+                    # Decision lines usually have more than just a few points and are not dotted
+                    xdata, ydata = line.get_data()
+                    if len(xdata) > 2 and line.get_linestyle() in ['-', 'solid']:
+                        decision_lines.append(line)
+                
+                print(f"DEBUG: Found {len(decision_lines)} decision lines")
+                
+                # Apply colors to decision lines
+                if len(decision_lines) >= len(valid_indices):
+                    # Take the last N decision lines (usually the main sample paths)
+                    main_lines = decision_lines[-len(valid_indices):]
+                    for i, line in enumerate(main_lines):
+                        line.set_color(sample_colors[i])
+                        line.set_linewidth(2.5)
+                        print(f"DEBUG: Set decision line {i} to color {sample_colors[i]} for sample {valid_indices[i]}")
+                elif len(decision_lines) > 0:
+                    # If we have fewer decision lines than samples, apply colors to all available lines
+                    for i, line in enumerate(decision_lines):
+                        if i < len(sample_colors):
+                            line.set_color(sample_colors[i])
+                            line.set_linewidth(2.5)
+                            print(f"DEBUG: Set line {i} to color {sample_colors[i]}")
+                
+                # Force redraw to ensure colors are applied
+                plt.draw()
+            
+            # Add title and legend
             if len(valid_indices) == 1:
                 title = f'Decision Plot for Sample {valid_indices[0]}'
             else:
                 title = f'Decision Plot for Samples {valid_indices}'
+                
+                # Add legend for multiple samples (only if colors were applied)
+                if sample_colors is not None:
+                    import matplotlib.patches as mpatches
+                    legend_elements = []
+                    for i, sample_idx in enumerate(valid_indices):
+                        color = sample_colors[i]
+                        legend_elements.append(
+                            mpatches.Patch(color=color, label=f'Sample {sample_idx}')
+                        )
+                    plt.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.15, 1))
             
             if target_name:
                 title += f' - {target_name}'
@@ -1873,15 +1672,15 @@ class LocalFeatureImportanceAnalyzer:
                 filename = f"decision_plot_samples_{indices_str}{target_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
                 filepath = self.output_dir / filename
                 plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                print("保存成功",filepath)
                 plt.close()
-                logger.info(f"Decision plot saved to: {filepath}")
                 return str(filepath)
             else:
                 plt.show()
                 return "displayed"
                 
         except Exception as e:
-            logger.error(f"Error creating single decision plot: {str(e)}")
+            print(f"DEBUG: Error in _create_single_decision_plot: {str(e)}")
             plt.close()
             return f"Error: {str(e)}"
     
@@ -1936,15 +1735,22 @@ class LocalFeatureImportanceAnalyzer:
                 n_targets = self.shap_values.shape[2]
                 target_indices = list(range(n_targets))  # Create plots for all targets
             else:
-                target_indices = [target_index] if target_index is not None else [None]
+                target_indices = [target_index] if target_index is not None else [0]
             
+            print(">>> target_indices",target_indices)
+            print(">>> target_index",target_index)
+            print("all_samples",all_samples)
             # Create plots for each target (or single target if not multi-target)
             for target_idx in target_indices:
+                print(".......", target_idx)
                 target_suffix = f"_target_{target_idx}" if target_idx is not None else ""
                 
                 # Create individual plots for each sample
                 for i, sample_idx in enumerate(all_samples):
                     sample_suffix = f"_sample_{sample_idx}" if len(all_samples) > 1 else ""
+                    print("*"*100)
+                    print("sample_idx",sample_idx)
+                    print("*"*100)
                     
                     # Create waterfall plot for this sample
                     waterfall_path = self.create_waterfall_plot(
@@ -1953,6 +1759,7 @@ class LocalFeatureImportanceAnalyzer:
                         save_plot=save_plots,
                         target_index=target_idx
                     )
+
                     if waterfall_path and waterfall_path not in ["SHAP not available", "No SHAP values", "Index out of range"]:
                         if ";" in waterfall_path:  # Multiple plots returned
                             for j, path in enumerate(waterfall_path.split(";")):
@@ -1961,9 +1768,7 @@ class LocalFeatureImportanceAnalyzer:
                             plot_paths[f'waterfall{target_suffix}{sample_suffix}'] = waterfall_path
                     
                     # Create force plot for this sample
-                    print("*"*100)
-                    print("target_idx",target_idx)
-                    print("*"*100)
+    
                     force_path = self.create_force_plot(
                         sample_index=sample_idx,
                         figsize=(20, 3),
@@ -1978,19 +1783,34 @@ class LocalFeatureImportanceAnalyzer:
                         else:
                             plot_paths[f'force{target_suffix}{sample_suffix}'] = force_path
                 
-                # Create decision plot for this target
-                decision_path = self.create_decision_plot(
-                    sample_indices=all_samples if len(all_samples) > 1 else sample_index,
-                    figsize=figsize,
-                    save_plot=save_plots,
-                    target_index=target_idx
-                )
-                if decision_path and decision_path not in ["SHAP not available", "No SHAP values", "No valid indices"]:
-                    if ";" in decision_path:  # Multiple plots returned
-                        for j, path in enumerate(decision_path.split(";")):
-                            plot_paths[f'decision_target_{j}'] = path.strip()
-                    else:
-                        plot_paths[f'decision{target_suffix}'] = decision_path
+                    # Create decision plot for this sample
+                    decision_path = self.create_decision_plot(
+                        sample_indices=sample_idx,
+                        figsize=figsize,
+                        save_plot=save_plots,
+                        target_index=target_idx
+                    )
+                    if decision_path and decision_path not in ["SHAP not available", "No SHAP values", "No valid indices"]:
+                        if ";" in decision_path:  # Multiple plots returned
+                            for j, path in enumerate(decision_path.split(";")):
+                                plot_paths[f'decision_target_{j}{sample_suffix}'] = path.strip()
+                        else:
+                            plot_paths[f'decision{target_suffix}{sample_suffix}'] = decision_path
+                
+                # Create multi-sample decision plot for this target (if multiple samples)
+                if len(all_samples) > 1:
+                    decision_path_multi = self.create_decision_plot(
+                        sample_indices=all_samples,
+                        figsize=figsize,
+                        save_plot=save_plots,
+                        target_index=target_idx
+                    )
+                    if decision_path_multi and decision_path_multi not in ["SHAP not available", "No SHAP values", "No valid indices"]:
+                        if ";" in decision_path_multi:  # Multiple plots returned
+                            for j, path in enumerate(decision_path_multi.split(";")):
+                                plot_paths[f'decision_multi_target_{j}'] = path.strip()
+                        else:
+                            plot_paths[f'decision_multi{target_suffix}'] = decision_path_multi
             
             logger.info(f"Created {len(plot_paths)} local importance plots for {len(all_samples)} samples")
             return plot_paths
@@ -2098,17 +1918,14 @@ class LocalFeatureImportanceAnalyzer:
     
     def _get_model_prediction(
         self, 
-        model: Union[RandomForestClassifier, RandomForestRegressor], 
+        model: Union[xgb.XGBClassifier, xgb.XGBRegressor], 
         X: np.ndarray
     ) -> Union[float, np.ndarray]:
         """Get model prediction for the given data."""
         if hasattr(model, "predict_proba"):
             # Classification - return probabilities for positive class
             proba = model.predict_proba(X)
-            if proba.shape[1] == 2:
-                return proba[:, 1]  # Positive class probability
-            else:
-                return proba[:, 0]  # First class probability
+            return proba
         else:
             # Regression - return raw predictions
             return model.predict(X)
@@ -2310,6 +2127,8 @@ class LocalFeatureImportanceAnalyzer:
             prediction = results.get('prediction', 0)
             expected_value = results.get('expected_value', 0)
             contributions = results.get('feature_contributions', [])
+            prediction_class_label = results.get('prediction_class_label')
+            prediction_original_scale = results.get('prediction_original_scale')
             
             # Ensure values are converted to scalars for formatting
             prediction_scalar = float(prediction) if not isinstance(prediction, str) else 0.0
@@ -2321,7 +2140,21 @@ class LocalFeatureImportanceAnalyzer:
                 
                 <div class="metric">Sample Index: {sample_idx}</div>
                 <div class="metric">Expected Value: {expected_value_scalar:.4f}</div>
-                <div class="metric">Prediction: {prediction_scalar:.4f}</div>
+                <div class="metric">Prediction: {prediction_scalar:.4f}</div>"""
+            
+            # Add classification label or regression original scale value
+            if prediction_class_label:
+                html += f"""
+                <div class="metric" style="background-color: #e8f5e8; border: 2px solid #4caf50;">
+                    <strong>Predicted Class: {prediction_class_label}</strong>
+                </div>"""
+            elif prediction_original_scale is not None:
+                html += f"""
+                <div class="metric" style="background-color: #fff3e0; border: 2px solid #ff9800;">
+                    <strong>Prediction (Original Scale): {float(prediction_original_scale):.4f}</strong>
+                </div>"""
+            
+            html += f"""
                 <div class="metric">Features Analyzed: {len(contributions)}</div>
                 
                 <h3>Feature Contributions (SHAP Values)</h3>
@@ -2363,41 +2196,10 @@ class LocalFeatureImportanceAnalyzer:
     def _add_batch_analysis_section(self, results: Dict[str, Any]) -> str:
         """Add batch analysis section to HTML report."""
         batch_size = results.get('batch_size', 0)
-        batch_summary = results.get('batch_summary', {})
         sample_results = results.get('sample_results', [])
         
-        # Ensure values are converted to scalars for formatting
-        mean_pred = float(batch_summary.get('mean_prediction', 0))
-        pred_std = float(batch_summary.get('prediction_std', 0))
-        
-        html = f"""
-        <div class="section">
-            <h2>Batch Analysis Summary</h2>
-            
-            <div class="metric">Batch Size: {batch_size}</div>
-            <div class="metric">Mean Prediction: {mean_pred:.4f}</div>
-            <div class="metric">Prediction Std: {pred_std:.4f}</div>
-            
-            <h3>Top Features Across Batch</h3>
-            <table>
-                <tr><th>Rank</th><th>Feature</th><th>Avg Abs SHAP</th><th>Frequency</th></tr>
-        """
-        
-        top_features = batch_summary.get('top_features_across_batch', [])
-        for i, feature in enumerate(top_features, 1):
-            html += f"""
-                <tr>
-                    <td>{i}</td>
-                    <td>{feature['feature']}</td>
-                    <td>{feature['avg_abs_shap']:.4f}</td>
-                    <td>{feature['frequency']}</td>
-                </tr>
-            """
-        
-        html += "</table>"
-        
+        html = ""
         # Add individual sample summaries
-        html += "<h3>Individual Sample Results</h3>"
         for i, sample in enumerate(sample_results[:5]):  # Show first 5 samples
             # Handle both single-target and multi-target sample results
             if sample.get('is_multi_target', False):
@@ -2460,9 +2262,21 @@ class LocalFeatureImportanceAnalyzer:
             else:
                 # Single-target sample result
                 sample_pred = float(sample.get('prediction', 0))
+                prediction_class_label = sample.get('prediction_class_label')
+                prediction_original_scale = sample.get('prediction_original_scale')
+                
+                # Build the sample header with prediction information
+                header_text = f"Sample {sample['sample_index']} - Prediction: {sample_pred:.4f}"
+                
+                # Add classification label or original scale value
+                if prediction_class_label:
+                    header_text += f" (Class: {prediction_class_label})"
+                elif prediction_original_scale is not None:
+                    header_text += f" (Original Prediction Scale: {float(prediction_original_scale):.4f})"
+                
                 html += f"""
                 <div class="sample-header">
-                    <h4>Sample {sample['sample_index']} - Prediction: {sample_pred:.4f}</h4>
+                    <h4>{header_text}</h4>
                 </div>
                 <table>
                     <tr><th>Feature</th><th>Value</th><th>SHAP Value</th></tr>
@@ -2499,6 +2313,18 @@ class LocalFeatureImportanceAnalyzer:
         <div class="section">
             <h2>📊 Local Feature Importance Visualizations</h2>
             <p>The following charts demonstrate SHAP-based local feature importance analysis for specific samples, revealing how each feature contributes to the model's prediction for those samples.</p>
+            
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #2196f3;">
+                <h4>🎯 Why SHAP Outputs Multiple Visualization Types</h4>
+                <p><strong>SHAP (SHapley Additive exPlanations)</strong> generates different types of visualizations because each type reveals different aspects of feature contributions:</p>
+                <ul>
+                    <li><strong>Waterfall Plot</strong>: Shows cumulative contribution path from baseline to final prediction</li>
+                    <li><strong>Force Plot</strong>: Displays push-pull effects of features in a horizontal layout</li>
+                    <li><strong>Decision Plot</strong>: Reveals feature interaction patterns and decision boundaries</li>
+                </ul>
+                <p><strong>For Classification Tasks</strong>: Each visualization considers how features contribute to predicting the <em>specific output class</em> for each sample, rather than all classes simultaneously. This provides precise, class-specific insights.</p>
+                <p><strong>Mathematical Foundation</strong>: Each plot represents the same Shapley decomposition: <code>f(x) = E[f(X)] + Σφᵢ</code>, but visualizes the additive contributions in different ways to reveal different patterns.</p>
+            </div>
         '''
         
         # Check if we have multi-target plots
@@ -2750,150 +2576,413 @@ class LocalFeatureImportanceAnalyzer:
         html += "</div>"
         return html
 
-
-# Convenience functions for easy usage
-def analyze_local_importance(
-    model: Union[RandomForestClassifier, RandomForestRegressor],
-    sample_data: Union[np.ndarray, pd.DataFrame, Dict[str, float], List[float], List[Dict[str, float]]],
-    background_data: Union[np.ndarray, pd.DataFrame],
-    feature_names: Optional[List[str]] = None,
-    output_dir: str = "local_feature_analysis",
-    generate_plots: bool = True,
-    generate_report: bool = True,
-    model_metadata: Optional[Dict[str, Any]] = None,
-    **kwargs
-) -> Dict[str, Any]:
-    """
-    Analyze local feature importance for samples using SHAP.
-    
-    This is a convenience function that provides a simple interface for local feature importance analysis.
-    For multi-target regression models, it will analyze each target separately and provide both
-    individual target results and overall feature importance rankings.
-    
-    Args:
-        model: Trained RandomForest model
-        sample_data: Sample data to analyze (various formats supported)
-        background_data: Background data for SHAP explainer
-        feature_names: Names of features
-        output_dir: Directory to save results
-        generate_plots: Whether to generate visualization plots
-        generate_report: Whether to generate analysis report
-        model_metadata: Model metadata including target information for multi-target handling
-        **kwargs: Additional arguments passed to the analyzer
-        
-    Returns:
-        Dictionary with local importance analysis results
-    """
-    try:
-        print(f"DEBUG MAIN: analyze_local_importance called with model_metadata: {model_metadata}")
-        
-        # Initialize analyzer
-        analyzer = LocalFeatureImportanceAnalyzer(output_dir=output_dir)
-        
-        # Determine analysis type based on sample data
-        if isinstance(sample_data, (dict, list)) and not isinstance(sample_data, np.ndarray):
-            if isinstance(sample_data, dict) or (isinstance(sample_data, list) and len(sample_data) > 0 and isinstance(sample_data[0], dict)):
-                # Single sample or batch of samples as dict(s)
-                if isinstance(sample_data, dict):
-                    # Single sample
-                    results = analyzer.analyze_sample_importance(
-                        model=model,
-                        sample_data=sample_data,
-                        background_data=background_data,
-                        feature_names=feature_names,
-                        sample_index=0,
-                        model_metadata=model_metadata
-                    )
-                else:
-                    # Batch of samples
-                    results = analyzer.analyze_batch_importance(
-                        model=model,
-                        batch_data=sample_data,
-                        background_data=background_data,
-                        feature_names=feature_names,
-                        max_samples=kwargs.get('max_samples', 10),
-                        model_metadata=model_metadata
-                    )
+    def _extract_classification_force_data(self, sample_index: int, target_index: Optional[int]) -> Tuple[np.ndarray, float]:
+        """Extract SHAP values and expected value for classification force plot."""
+        if isinstance(self.shap_values, list):
+            # List format: binary/multiclass classification
+            if self.task_config.get('is_binary_classification', False):
+                # Binary classification - use positive class (index 1)
+                class_idx = 1
             else:
-                # List of values - single sample
-                results = analyzer.analyze_sample_importance(
-                    model=model,
-                    sample_data=sample_data,
-                    background_data=background_data,
-                    feature_names=feature_names,
-                    sample_index=0,
-                    model_metadata=model_metadata
-                )
+                # Multiclass - use first class or specified target
+                class_idx = target_index if target_index is not None else 0
+            
+            shap_values = self.shap_values[class_idx][sample_index:sample_index+1]
+            expected_value = self.expected_value[class_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+            
         else:
-            # NumPy array or DataFrame
-            sample_array = sample_data.values if hasattr(sample_data, 'values') else np.array(sample_data)
-            
-            if sample_array.ndim == 1:
-                sample_array = sample_array.reshape(1, -1)
-            
-            if sample_array.shape[0] == 1:
-                # Single sample
-                results = analyzer.analyze_sample_importance(
-                    model=model,
-                    sample_data=sample_array,
-                    background_data=background_data,
-                    feature_names=feature_names,
-                    sample_index=0,
-                    model_metadata=model_metadata
-                )
-            else:
-                # Batch analysis
-                results = analyzer.analyze_batch_importance(
-                    model=model,
-                    batch_data=sample_array,
-                    background_data=background_data,
-                    feature_names=feature_names,
-                    max_samples=kwargs.get('max_samples', sample_array.shape[0]),
-                    model_metadata=model_metadata
-                )
-        
-        # Generate plots if requested
-        if generate_plots:
-            if results.get('is_multi_target', False):
-                # For multi-target results, generate plots for each target
-                plot_paths = {}
-                target_info = results.get('target_info', {})
+            # Array format: check dimensionality
+            if self.shap_values.ndim == 3:
+                # 3D array format: (n_samples, n_features, n_classes)
+                if self.task_config.get('is_binary_classification', False):
+                    # Binary classification - use positive class (index 1)
+                    class_idx = 1
+                else:
+                    # Multiclass - use specified target or first class
+                    class_idx = target_index if target_index is not None else 0
                 
-                for target_index, target_name in target_info.items():
-                    try:
-                        target_plot_paths = analyzer.create_all_plots(
-                            sample_index=0,
-                            save_plots=True,
-                            target_index=int(target_index)
-                        )
-                        # Add target suffix to plot names
-                        for plot_type, path in target_plot_paths.items():
-                            plot_key = f"{plot_type}_target_{target_index}_{target_name}"
-                            plot_paths[plot_key] = path
-                    except Exception as e:
-                        logger.warning(f"Failed to generate plots for target {target_name}: {e}")
-                        
-                results['plot_paths'] = plot_paths
+                shap_values = self.shap_values[sample_index:sample_index+1, :, class_idx]
+                expected_value = self.expected_value[class_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+            
+            elif self.shap_values.ndim == 2:
+                # 2D array format: (n_samples, n_features) - for binary classification with single output
+                shap_values = self.shap_values[sample_index:sample_index+1]
+                expected_value = self.expected_value if not isinstance(self.expected_value, np.ndarray) else self.expected_value[0]
+            
             else:
-                # Single target results
-                plot_paths = analyzer.create_all_plots(
-                    sample_index=0,
-                    save_plots=True
-                )
-                results['plot_paths'] = plot_paths
+                raise ValueError(f"Unsupported SHAP values dimensionality: {self.shap_values.ndim}")
         
-        # Generate report if requested
-        if generate_report:
-            plot_paths = results.get('plot_paths', {})
-            report_path = analyzer.generate_report(
-                analysis_results=results,
-                plot_paths=plot_paths,
-                format_type="html"
+        return shap_values, expected_value
+    
+    def _extract_regression_force_data(self, sample_index: int, target_index: Optional[int]) -> Tuple[np.ndarray, float]:
+        """Extract SHAP values and expected value for regression force plot."""
+        if self.task_config.get('is_multi_target', False):
+            # Multi-target regression
+            if target_index is None:
+                target_index = 0  # Default to first target if not specified
+                
+            if self.shap_values.ndim == 3:
+                # Format: (n_samples, n_features, n_targets)
+                shap_values = self.shap_values[sample_index:sample_index+1, :, target_index]
+            elif self.shap_values.ndim == 2:
+                # Format: (n_features, n_targets) - single sample case
+                shap_values = self.shap_values[:, target_index:target_index+1].T  # Shape: (1, n_features)
+            else:
+                raise ValueError(f"Unsupported SHAP values dimensionality for multi-target: {self.shap_values.ndim}")
+                
+            expected_value = self.expected_value[target_index] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+        else:
+            # Single-target regression
+            if self.shap_values.ndim == 3:
+                # Multi-target regression
+                idx = target_index if target_index is not None else 0
+                shap_values = self.shap_values[sample_index:sample_index+1, :, idx]
+                expected_value = self.expected_value[idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+            else:
+                # Single-target regression
+                shap_values = self.shap_values[sample_index:sample_index+1]
+                expected_value = self.expected_value
+        
+        return shap_values, expected_value
+    
+    def _extract_classification_decision_data(self, sample_indices: List[int], target_index: Optional[int]) -> Tuple[np.ndarray, float, str]:
+        """Extract SHAP values, expected value, and target name for classification decision plot."""
+        if isinstance(self.shap_values, list):
+            # List format: binary/multiclass classification
+            if self.task_config.get('is_binary_classification', False):
+                # Binary classification - use positive class (index 1)
+                class_idx = 1
+            else:
+                # Multiclass - use first class or specified target
+                class_idx = target_index if target_index is not None else 0
+            
+            shap_values = self.shap_values[class_idx]
+            expected_value = self.expected_value[class_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+            target_name = self._get_classification_target_name(class_idx)
+            
+        else:
+            # Array format (could be 2D or 3D)
+            if self.shap_values.ndim == 3:
+                # 3D classification array: (n_samples, n_features, n_classes)
+                if self.task_config.get('is_binary_classification', False):
+                    # Binary classification - use positive class (index 1)
+                    class_idx = 1
+                else:
+                    # Multiclass - use first class or specified target
+                    class_idx = target_index if target_index is not None else 0
+                    
+                shap_values = self.shap_values[:, :, class_idx]
+                expected_value = self.expected_value[class_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+                target_name = self._get_classification_target_name(class_idx)
+            else:
+                # 2D classification array: (n_samples, n_features) - binary classification
+                shap_values = self.shap_values
+                expected_value = self.expected_value
+                target_name = self._get_classification_target_name(None)
+        
+        return shap_values, expected_value, target_name
+    
+    def _extract_regression_decision_data(self, sample_indices: List[int], target_index: Optional[int]) -> Tuple[np.ndarray, float, str]:
+        """Extract SHAP values, expected value, and target name for regression decision plot."""
+        if self.shap_values.ndim == 3:
+            # Multi-target regression
+            idx = target_index if target_index is not None else 0
+            shap_values = self.shap_values[:, :, idx]
+            expected_value = self.expected_value[idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+            target_name = self._get_regression_target_name(target_index)
+        else:
+            # Single-target regression
+            shap_values = self.shap_values
+            expected_value = self.expected_value
+            target_name = self._get_regression_target_name(0)
+        
+        return shap_values, expected_value, target_name
+    
+    def _process_classification_sample(
+        self,
+        sample_shap_values: Union[np.ndarray, List[np.ndarray]],
+        prediction: Union[float, np.ndarray],
+        X_sample: np.ndarray,
+        X_background: np.ndarray,
+        feature_names: List[str],
+        model: xgb.XGBClassifier,
+        task_config: Dict[str, Any],
+        original_sample: Any,
+        sample_index: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Process single sample SHAP analysis for classification tasks.
+        
+        Args:
+            sample_shap_values: SHAP values from explainer
+            prediction: Model prediction (probabilities)
+            X_sample: Sample data
+            X_background: Background data
+            feature_names: Feature names
+            model: XGBoost classifier
+            task_config: Task configuration
+            original_sample: Original sample data
+            sample_index: Sample index
+            
+        Returns:
+            Analysis results dictionary
+        """
+        logger.info(f"Processing classification sample: {task_config['n_classes']} classes")
+        
+        # Store SHAP values
+        self.shap_values = sample_shap_values
+        
+        # Extract predicted class and probabilities
+        if isinstance(prediction, np.ndarray) and prediction.ndim > 1:
+            class_probabilities = prediction[0]
+            predicted_class_idx = int(np.argmax(class_probabilities))
+            predicted_probability = float(class_probabilities[predicted_class_idx])
+        else:
+            # Handle single prediction case
+            predicted_class_idx = 0
+            predicted_probability = float(prediction) if isinstance(prediction, (int, float)) else float(prediction[0])
+            class_probabilities = np.array([predicted_probability])
+        
+        # Extract SHAP values for the predicted class
+        if isinstance(sample_shap_values, list):
+            # Multi-class - use predicted class SHAP values
+            target_shap_values = sample_shap_values[predicted_class_idx][0]
+            expected_value = self.expected_value[predicted_class_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+            target_class_idx = predicted_class_idx
+        else:
+            # Array format
+            if sample_shap_values.ndim == 3:
+                # 3D array: (n_samples, n_features, n_classes) - use predicted class SHAP values
+                target_shap_values = sample_shap_values[0, :, predicted_class_idx]
+                expected_value = self.expected_value[predicted_class_idx] if isinstance(self.expected_value, np.ndarray) else self.expected_value
+                target_class_idx = predicted_class_idx
+            else:
+                # 2D array: (n_samples, n_features) - single output or binary classification
+                target_shap_values = sample_shap_values[0]
+                expected_value = self.expected_value if not isinstance(self.expected_value, np.ndarray) else self.expected_value[0]
+                target_class_idx = predicted_class_idx
+        
+        # Generate intelligent class label
+        target_name = self._get_intelligent_class_label(target_class_idx)
+        
+        # Create results using the unified method
+        results = self._create_single_target_results(
+            sample_index, expected_value, predicted_probability,
+            target_shap_values, X_sample, feature_names, model, X_background,
+            target_name=target_name,
+            original_sample_data=original_sample,
+            class_prediction_label=target_name
+        )
+        
+        # Store analysis timestamp
+        results['analysis_metadata']['timestamp'] = datetime.now().isoformat()
+        self.analysis_timestamp = results['analysis_metadata']['timestamp']
+        
+        logger.info(f"Classification sample analysis completed for class: {target_name}")
+        return results
+    
+    def _process_regression_sample(
+        self,
+        sample_shap_values: np.ndarray,
+        prediction: Union[float, np.ndarray],
+        X_sample: np.ndarray,
+        X_background: np.ndarray,
+        feature_names: List[str],
+        model: xgb.XGBRegressor,
+        task_config: Dict[str, Any],
+        original_sample: Any,
+        sample_index: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Process single sample SHAP analysis for regression tasks.
+        
+        Args:
+            sample_shap_values: SHAP values from explainer
+            prediction: Model prediction
+            X_sample: Sample data
+            X_background: Background data
+            feature_names: Feature names
+            model: XGBoost regressor
+            task_config: Task configuration
+            original_sample: Original sample data
+            sample_index: Sample index
+            
+        Returns:
+            Analysis results dictionary
+        """
+        logger.info(f"Processing regression sample: {task_config['n_targets']} targets")
+        
+        # Store SHAP values
+        self.shap_values = sample_shap_values
+        
+        if task_config['is_multi_target']:
+            return self._process_multi_target_regression_sample(
+                sample_shap_values, prediction, X_sample, X_background,
+                feature_names, model, task_config, original_sample, sample_index
             )
-            results['report_path'] = report_path
+        else:
+            return self._process_single_target_regression_sample(
+                sample_shap_values, prediction, X_sample, X_background,
+                feature_names, model, task_config, original_sample, sample_index
+            )
+    
+    def _process_single_target_regression_sample(
+        self,
+        sample_shap_values: np.ndarray,
+        prediction: Union[float, np.ndarray],
+        X_sample: np.ndarray,
+        X_background: np.ndarray,
+        feature_names: List[str],
+        model: xgb.XGBRegressor,
+        task_config: Dict[str, Any],
+        original_sample: Any,
+        sample_index: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Process single-target regression sample.
+        
+        Returns:
+            Analysis results dictionary
+        """
+        logger.info(f"Processing single-target regression sample")
+        
+        # Extract SHAP values for the sample
+        if sample_shap_values.ndim > 1:
+            target_shap_values = sample_shap_values[0]
+        else:
+            target_shap_values = sample_shap_values
+        
+        # Extract prediction value
+        prediction_value = float(prediction[0]) if hasattr(prediction, '__len__') else float(prediction)
+        
+        # Extract expected value
+        expected_value = float(self.expected_value) if not isinstance(self.expected_value, np.ndarray) else float(self.expected_value[0])
+        
+        # Get target name
+        target_name = task_config['target_names'][0] if task_config['target_names'] else "Target"
+        
+        # Create results using the unified method
+        results = self._create_single_target_results(
+            sample_index, expected_value, prediction_value,
+            target_shap_values, X_sample, feature_names, model, X_background,
+            target_name=target_name,
+            original_sample_data=original_sample
+        )
+        
+        # Store analysis timestamp
+        results['analysis_metadata']['timestamp'] = datetime.now().isoformat()
+        self.analysis_timestamp = results['analysis_metadata']['timestamp']
+        
+        logger.info(f"Single-target regression sample analysis completed")
+        return results
+    
+    def _process_multi_target_regression_sample(
+        self,
+        sample_shap_values: np.ndarray,
+        prediction: Union[float, np.ndarray],
+        X_sample: np.ndarray,
+        X_background: np.ndarray,
+        feature_names: List[str],
+        model: xgb.XGBRegressor,
+        task_config: Dict[str, Any],
+        original_sample: Any,
+        sample_index: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Process multi-target regression sample.
+        
+        Returns:
+            Analysis results dictionary
+        """
+        n_targets = task_config['n_targets']
+        target_names = task_config['target_names']
+        
+        logger.info(f"Processing multi-target regression sample: {n_targets} targets")
+        
+        # Determine SHAP format for multi-target
+        shap_format = self._determine_multitarget_shap_format(
+            sample_shap_values.reshape(1, *sample_shap_values.shape), 
+            len(feature_names), n_targets
+        )
+        
+        # Initialize tracking structures
+        target_results = {}
+        overall_feature_importance = {}
+        
+        # Process each target
+        for target_idx in range(n_targets):
+            target_name = target_names[target_idx] if target_idx < len(target_names) else f"Target_{target_idx + 1}"
+            
+            # Extract SHAP values for this target
+            target_shap = self._extract_multitarget_shap_values(
+                sample_shap_values.reshape(1, *sample_shap_values.shape),
+                0, target_idx, shap_format, len(feature_names)
+            )
+            
+            # Extract expected value and prediction for this target
+            target_expected = self._extract_multitarget_expected_value(target_idx)
+            target_prediction = self._extract_multitarget_prediction(prediction, 0, target_idx)
+            
+            # Create result for this target
+            target_result = self._create_single_target_results(
+                sample_index, target_expected, target_prediction,
+                target_shap, X_sample, feature_names, model, X_background,
+                target_name=target_name,
+                original_sample_data=original_sample
+            )
+            
+            target_results[target_name] = target_result
+            
+            # Accumulate overall feature importance
+            for contrib in target_result['feature_contributions']:
+                feature = contrib['feature']
+                if feature not in overall_feature_importance:
+                    overall_feature_importance[feature] = {
+                        'total_abs_shap': 0,
+                        'target_contributions': {},
+                        'feature_value': contrib['value']
+                    }
+                overall_feature_importance[feature]['total_abs_shap'] += abs(contrib['shap_value'])
+                overall_feature_importance[feature]['target_contributions'][target_name] = contrib['shap_value']
+        
+        # Create overall summary
+        overall_contributions = []
+        for feature, data in overall_feature_importance.items():
+            overall_contributions.append({
+                'feature': feature,
+                'value': data['feature_value'],
+                'total_abs_shap': data['total_abs_shap'],
+                'target_contributions': data['target_contributions']
+            })
+        
+        # Sort by total absolute SHAP importance
+        overall_contributions.sort(key=lambda x: x['total_abs_shap'], reverse=True)
+        for i, contrib in enumerate(overall_contributions):
+            contrib['overall_rank'] = i + 1
+        
+        # Create comprehensive multi-target results
+        results = {
+            'sample_index': sample_index or 0,
+            'is_multi_target': True,
+            'target_dimension': n_targets,
+            'target_names': target_names,
+            'target_results': target_results,
+            'overall_feature_importance': overall_contributions,
+            'analysis_metadata': {
+                'timestamp': datetime.now().isoformat(),
+                'n_features': len(feature_names),
+                'n_targets': n_targets,
+                'model_type': type(model).__name__,
+                'background_samples': X_background.shape[0],
+                'analysis_based_on_preprocessed_data': True,
+                'data_preprocessing_note': 'SHAP analysis is performed on preprocessed (scaled/normalized) feature values. Original values are provided for reference.'
+            }
+        }
+        
+        # Store analysis timestamp
+        self.analysis_timestamp = results['analysis_metadata']['timestamp']
+        
+        logger.info(f"Multi-target regression sample analysis completed")
+        logger.info(f"Top 3 overall contributing features: {', '.join([c['feature'] for c in overall_contributions[:3]])}")
         
         return results
-        
-    except Exception as e:
-        logger.error(f"Error in local importance analysis: {str(e)}")
-        raise 

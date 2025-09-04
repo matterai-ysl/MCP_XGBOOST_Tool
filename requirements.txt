@@ -8,7 +8,7 @@ numpy>=1.24.0
 optuna>=3.4.0
 
 # Feature Importance & Model Explainability
-shap>=0.42.0
+shap>=0.47.0
 
 # Visualization
 matplotlib>=3.7.0
@@ -24,6 +24,8 @@ uvicorn>=0.24.0
 joblib>=1.3.0
 jinja2>=3.1.0
 pydantic>=2.4.0
+psutil>=5.9.0
+chardet>=5.0.0
 
 # Data Processing
 scipy>=1.11.0

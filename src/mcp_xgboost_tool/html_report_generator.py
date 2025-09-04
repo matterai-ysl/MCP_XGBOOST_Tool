@@ -417,7 +417,7 @@ class HTMLReportGenerator:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prediction Report - {model_name}</title>
+    <title>Prediction Report - {model_id}</title>
     {css_styles}
 </head>
 <body>
@@ -436,7 +436,7 @@ class HTMLReportGenerator:
         
         <footer class="report-footer">
             <p>Report generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')}</p>
-            <p>MCP Random Forest Tool - Prediction Analysis Report v1.0.0</p>
+                            <p>MCP XGBoost Tool - Prediction Analysis Report v1.0.0</p>
         </footer>
     </div>
 </body>
@@ -1646,7 +1646,7 @@ class HTMLReportGenerator:
             <div class="metric-grid">
                 <div class="metric">
                     <div class="metric-label">Model Type</div>
-                    <div class="metric-value">{model_info.get('task_type', 'Random Forest').title()}</div>
+                    <div class="metric-value">{model_info.get('task_type', 'XGBoost').title()}</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">Number of Trees</div>
@@ -2216,7 +2216,7 @@ class HTMLReportGenerator:
             <div class="recommendation">
                 <strong>🎯 Feature Insight:</strong> 
                 Feature importance analysis reveals which variables contribute most to model predictions. 
-                Random Forest provides natural feature importance through Mean Decrease in Impurity. 
+                XGBoost provides comprehensive feature importance metrics including gain, weight, and cover. 
                 Top features with high importance scores should be prioritized for feature engineering and domain analysis.
             </div>
         </div>"""
@@ -2459,6 +2459,8 @@ class HTMLReportGenerator:
             
             # Feature importance recommendations
             feature_importance = training_results.get('feature_importance', {})
+            print('cccccccccccccccccccccccccccccccccccccccc')
+            print(feature_importance)
             if feature_importance and isinstance(feature_importance, dict):
                 logger.debug(f"Found feature importance data for {len(feature_importance)} features")
                 # Find features with very low importance
@@ -2470,10 +2472,12 @@ class HTMLReportGenerator:
                     if not isinstance(data, dict):
                         continue
                         
-                    tree_importance = data.get('tree_importance', 0)
-                    if isinstance(tree_importance, (int, float)) and tree_importance < 0.01:
+                    # For XGBoost, use 'gain' as the primary importance metric
+                    # (equivalent to what was called 'tree_importance' in random forest)
+                    importance_value = data.get('gain', 0)
+                    if isinstance(importance_value, (int, float)) and importance_value < 0.01:
                         low_importance_features.append(feature)
-                    importance_values.append(tree_importance if isinstance(tree_importance, (int, float)) else 0)
+                    importance_values.append(importance_value if isinstance(importance_value, (int, float)) else 0)
                 
                 if low_importance_features:
                     recommendations.append(f"🔍 Consider removing low-importance features: {', '.join(low_importance_features[:3])}")
@@ -2630,9 +2634,9 @@ class HTMLReportGenerator:
                 feature_importance_df = pd.DataFrame([
                     {
                         'feature': feature,
-                        'tree_importance': data.get('tree_importance', 0) if isinstance(data, dict) else 0,
-                        'permutation_importance_mean': data.get('permutation_importance_mean', 0) if isinstance(data, dict) else 0,
-                        'permutation_importance_std': data.get('permutation_importance_std', 0) if isinstance(data, dict) else 0
+                        'gain': data.get('gain', 0) if isinstance(data, dict) else 0,
+                        'permutation_mean': data.get('permutation_mean', 0) if isinstance(data, dict) else 0,
+                        'permutation_std': data.get('permutation_std', 0) if isinstance(data, dict) else 0
                     }
                     for feature, data in metadata['feature_importance'].items()
                 ])
@@ -2686,7 +2690,6 @@ class HTMLReportGenerator:
         # Generate visualization sections
         cv_visualization_section = self._generate_cv_visualization_section(model_directory)
         feature_importance_visualization_section = self._generate_feature_importance_visualization_section(model_directory)
-        
         html_template = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -2902,7 +2905,7 @@ class HTMLReportGenerator:
 <body>
     <div class="container">
         <div class="header">
-            <h1>🤖 Random Forest Training Report</h1>
+            <h1>🤖 XGBOOST Training Report</h1>
             <p>Comprehensive Analysis of Model Training Process</p>
         </div>
         
@@ -2920,7 +2923,7 @@ class HTMLReportGenerator:
         
         <div class="footer">
             <p>Report generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')}</p>
-            <p>MCP Random Forest Tool - Training Analysis Report v1.0.0</p>
+                            <p>MCP XGBoost Tool - Training Analysis Report v1.0.0</p>
         </div>
     </div>
 </body>
@@ -3469,24 +3472,32 @@ class HTMLReportGenerator:
         if not feature_importance:
             return ""
         
-        # Create table of feature importance with scrollable container
+        # Create comprehensive table of feature importance with scrollable container
         table_html = '''
         <div class="table-container">
         <table>
             <thead>
                 <tr>
                     <th>Feature</th>
-                    <th>Tree Importance</th>
-                    <th>Permutation Importance</th>
+                    <th>Gain</th>
+                    <th>Weight</th>
+                    <th>Cover</th>
+                    <th>Permutation Mean</th>
+                    <th>Permutation Std</th>
                 </tr>
             </thead>
             <tbody>
         '''
         
-        # Sort features by tree importance
+        # Sort features by gain (most commonly used importance metric)
+        def get_gain_importance(data):
+            if not isinstance(data, dict):
+                return 0
+            return data.get('gain', 0)
+        
         sorted_features = sorted(
             feature_importance.items(),
-            key=lambda x: x[1].get('tree_importance', 0) if isinstance(x[1], dict) else 0,
+            key=lambda x: get_gain_importance(x[1]),
             reverse=True
         )
         
@@ -3495,17 +3506,36 @@ class HTMLReportGenerator:
             if not isinstance(data, dict):
                 continue
                 
-            tree_imp = data.get('tree_importance', 0)
-            perm_imp = data.get('permutation_importance_mean', 0)
+            # Extract all available importance metrics
+            gain = data.get('gain', 0)
+            weight = data.get('weight', 0)
+            cover = data.get('cover', 0)
+            perm_mean = data.get('permutation_mean', 0)
+            perm_std = data.get('permutation_std', 0)
+            
             table_html += f'''
             <tr>
-                <td>{feature}</td>
-                <td>{tree_imp:.4f}</td>
-                <td>{perm_imp:.4f}</td>
+                <td><strong>{feature}</strong></td>
+                <td>{gain:.4f}</td>
+                <td>{weight:.0f}</td>
+                <td>{cover:.2f}</td>
+                <td>{perm_mean:.4f}</td>
+                <td>{perm_std:.4f}</td>
             </tr>
             '''
         
-        table_html += '</tbody></table></div>'
+        table_html += '''</tbody></table></div>
+        
+        <div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
+            <h4>📖 Metric Description:</h4>
+            <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
+                <li><strong>Gain</strong>: The total information gain brought by the feature when splitting (primary importance metric)</li>
+                <li><strong>Weight</strong>: The number of times the feature is used for splitting across all trees</li>
+                <li><strong>Cover</strong>: The total number of samples covered when the feature is used in a split</li>
+                <li><strong>Permutation Mean</strong>: Mean permutation importance (the extent to which performance decreases after shuffling the feature)</li>
+                <li><strong>Permutation Std</strong>: Standard deviation of permutation importance (stability of the importance)</li>
+            </ul>
+        </div>'''
         
         return f'''
         <div class="section">
@@ -3641,7 +3671,7 @@ class HTMLReportGenerator:
 </head>
 <body>
     <div class="header">
-        <h1>🔮 ML Prediction Report</h1>
+        <h1>🔮 Xgboost Prediction Report</h1>
         <p><strong>Model ID:</strong> {results.get('model_id', 'Unknown')}</p>
         <p><strong>Task Type:</strong> {model_info.get('task_type', 'Unknown').title()}</p>
         <p><strong>Prediction Time:</strong> {results.get('prediction_metadata', {}).get('prediction_timestamp', 'Unknown')}</p>
@@ -3716,6 +3746,7 @@ class HTMLReportGenerator:
         # Show detailed predictions with feature values
         # Use raw predictions for label mapping in HTML
         raw_predictions = results.get('raw_predictions', results.get('predictions', []))
+
         predictions_list = raw_predictions if isinstance(raw_predictions, (list, np.ndarray)) else [raw_predictions]
         
         max_samples_to_show = min(10, len(predictions_list))
@@ -3741,6 +3772,9 @@ class HTMLReportGenerator:
             # Format prediction value properly - handle classification labels
             if results.get('task_type') == 'classification' and results.get('label_mapping'):
                 class_to_label = results['label_mapping'].get('class_to_label', {})
+                if isinstance(class_to_label, dict):
+                    class_to_label = {k: str(v) for k, v in class_to_label.items()}
+
                 def safe_html_label_lookup(pred_value):
                     """Safely lookup classification label for HTML report, handling both string and numeric predictions."""
                     if isinstance(pred_value, str):
@@ -3759,6 +3793,7 @@ class HTMLReportGenerator:
                 else:
                     # Single classification
                     pred_str = safe_html_label_lookup(pred)
+                    print(">>> pred_str", pred_str)
             else:
                 # Regression or no label mapping
                 if isinstance(pred, (list, np.ndarray)):

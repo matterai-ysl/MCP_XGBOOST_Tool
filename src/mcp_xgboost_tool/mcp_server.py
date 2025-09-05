@@ -26,39 +26,90 @@ import zipfile
 import os
 
 # FastMCP import
-from mcp.server import FastMCP
-
+from fastmcp import FastMCP
+from .config import BASE_URL,get_download_url,get_static_url
 # Internal modules
 from .training import TrainingEngine
 from .prediction import PredictionEngine
 from .feature_importance import  FeatureImportanceAnalyzer
 from .model_manager import ModelManager
 from .data_validator import DataValidator
+from .training_queue import get_queue_manager, initialize_queue_manager
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def serialize_for_json(obj) -> Any:
+    """
+    Convert numpy arrays and other non-serializable objects to JSON-serializable formats.
+    """
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, dict):
+        return {key: serialize_for_json(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_for_json(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return [serialize_for_json(item) for item in obj]
+    elif isinstance(obj, set):
+        return [serialize_for_json(item) for item in obj]
+    elif hasattr(obj, 'isoformat'):  # datetime objects
+        return obj.isoformat()
+    elif obj is None:
+        return None
+    else:
+        # For other objects, try to convert to string as fallback
+        try:
+            return str(obj)
+        except:
+            return None
+
 # Initialize MCP server with detailed instructions
 mcp = FastMCP(
     name="XGBoost Machine Learning Tool",
     instructions="""
-    This is a comprehensive Machine Learning server providing advanced XGBoost capabilities.
+    This is a comprehensive Machine Learning server providing advanced XGBoost capabilities with concurrent training support.
     
     Available tools:
-    1. train_xgboost_regressor - Train an XGBoost regression model with advanced features
-    2. train_xgboost_classifier - Train an XGBoost classifier for classification tasks
+    1. train_xgboost_regressor - Submit XGBoost regression training task to queue (returns task_id for monitoring)
+    2. train_xgboost_classifier - Submit XGBoost classification training task to queue (returns task_id for monitoring)
     3. predict_from_file - Make batch predictions from a data file
     4. predict_from_values - Make real-time predictions from feature values
-    5. analyze_feature_importance - Analyze feature importance of a trained model
-    6. list_models - List all available trained models
-    7. get_model_info - Get detailed information about a specific model
-    8. delete_model - Delete a trained model
+    5. analyze_global_feature_importance - Analyze global feature importance with advanced visualizations
+    6. analyze_local_feature_importance - Analyze local feature importance for specific samples
+    7. list_models - List all available trained models
+    8. get_model_info - Get detailed information about a specific model
+    9. delete_model - Delete a trained model
+    10. get_task_status - Get the status of a training task by task_id
+    11. get_training_results - Get detailed training results for a completed task
+    12. list_training_tasks - List all training tasks with their status
+    13. get_queue_status - Get overall training queue status
+    14. cancel_training_task - Cancel a training task by task_id
     
-    Use these tools to build complete ML workflows from training to deployment.
-    The train_xgboost_regressor function supports multi-target regression, GPU acceleration, early stopping, 
-    hyperparameter optimization, and XGBoost-specific evaluation metrics.
+    Training Workflow:
+    1. Submit training task using train_xgboost_regressor or train_xgboost_classifier
+    2. Receive task_id and queue information immediately (non-blocking)
+    3. Monitor progress using get_task_status with the task_id
+    4. Once completed, use get_training_results for detailed training information
+    5. Access trained model files and use other analysis tools
+    
+    Key Features:
+    - Concurrent training support - multiple users can train simultaneously
+    - Task queue management with status tracking
+    - XGBoost gradient boosting with GPU acceleration
+    - Comprehensive hyperparameter optimization using Optuna
+    - Multi-target regression support
+    - Advanced feature importance analysis (SHAP, permutation, tree-based)
+    - Professional HTML and academic report generation
+    - Robust data preprocessing and validation
     """
 )
 
@@ -67,7 +118,13 @@ root_dir = Path("./trained_models")
 training_engine = TrainingEngine("trained_models")
 prediction_engine = PredictionEngine("trained_models")
 model_manager = ModelManager("trained_models")
-base_url = "http://localhost:8080"
+
+# Initialize queue manager at startup
+async def initialize_server():
+    """Initialize server components including queue manager."""
+    await initialize_queue_manager()
+    logger.info("Queue manager initialized successfully")
+
 # @mcp.custom_route("/hello/{name}", methods=["GET"])
 # async def simple_hello(request: Request) -> PlainTextResponse:
 #     name = request.path_params["name"]
@@ -86,8 +143,7 @@ async def train_xgboost_regressor(
     apply_preprocessing: bool = True,
     scaling_method: str = "standard",
     enable_gpu: bool = True,
-    device: str = "auto",
-    **xgboost_params
+    device: str = "auto"
 ) -> Dict[str, Any]:
     """
     Train an XGBoost regression model with multi-target support and advanced features.
@@ -113,7 +169,6 @@ async def train_xgboost_regressor(
         scaling_method: Scaling method ('standard', 'minmax', 'robust', 'quantile', 'power')
         enable_gpu: Whether to enable GPU training if available
         device: Device to use ("auto", "cpu", "cuda", "gpu")
-        **xgboost_params: Additional XGBoost parameters (learning_rate, max_depth, etc.)
         
     Returns:
         Training results including model performance, metadata, and XGBoost-specific information
@@ -160,27 +215,47 @@ async def train_xgboost_regressor(
         
         model_id = str(uuid.uuid4())
         
-        # Run training in executor to avoid blocking
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: training_engine.train_xgboost(
-                data_source=data_source,
-                target_column=target_columns if target_dimension > 1 else target_columns[0],
-                model_id=model_id,
-                optimize_hyperparameters=optimize_hyperparameters,
-                n_trials=n_trials,
-                cv_folds=cv_folds,
-                scoring_metric=scoring_metric,
-                validate_data=validate_data,
-                save_model=save_model,
-                apply_preprocessing=apply_preprocessing,
-                scaling_method=scaling_method,
-                task_type="regression",
-                enable_gpu=enable_gpu,
-                device=device,
-                **xgboost_params
-            )
+        # Submit task to queue for async processing
+        queue_manager = get_queue_manager()
+        
+        task_params = {
+            'data_source': data_source,
+            'target_column': target_columns if target_dimension > 1 else target_columns[0],
+            'model_id': model_id,
+            'optimize_hyperparameters': optimize_hyperparameters,
+            'n_trials': n_trials,
+            'cv_folds': cv_folds,
+            'scoring_metric': scoring_metric,
+            'validate_data': validate_data,
+            'save_model': save_model,
+            'apply_preprocessing': apply_preprocessing,
+            'scaling_method': scaling_method,
+            'task_type': "regression",
+            'enable_gpu': enable_gpu,
+            'device': device,
+        }
+        
+        # Submit to queue
+        task_id = await queue_manager.submit_task(
+            task_type="regression",
+            params=task_params,
+            user_id=None  # Can be added as parameter if needed
         )
+        
+        # Get queue status
+        queue_status = await queue_manager.get_queue_status()
+        
+        result = {
+            "status": "submitted",
+            "task_id": task_id,
+            "model_id": model_id,
+            "message": "Regression training task submitted to queue",
+            "queue_info": {
+                "position_in_queue": queue_status.get("queued_tasks", 0),
+                "running_tasks": queue_status.get("running_tasks", 0),
+                "max_concurrent": queue_status.get("max_concurrent_tasks", 3)
+            }
+        }
         
         logger.info("XGBoost regression training completed successfully")
         return result
@@ -205,7 +280,6 @@ async def train_xgboost_classifier(
     save_model: bool = True,
     enable_gpu: bool = True,
     device: str = "auto",
-    **xgboost_params
 ) -> Dict[str, Any]:
     """
     Train an XGBoost classifier for classification tasks (supports multi-class).
@@ -223,7 +297,6 @@ async def train_xgboost_classifier(
         save_model: Whether to save the trained model
         enable_gpu: Whether to enable GPU training if available
         device: Device to use ("auto", "cpu", "cuda", "gpu")
-        **xgboost_params: Additional XGBoost parameters (learning_rate, max_depth, etc.)
         
     Returns:
         Training results including model performance, metadata, and XGBoost-specific information
@@ -264,26 +337,47 @@ async def train_xgboost_classifier(
         
         model_id = str(uuid.uuid4())
         
-        # Run training in executor to avoid blocking
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: training_engine.train_xgboost_classification(
-                data_source=data_source,
-                target_column=target_columns if target_dimension > 1 else target_columns[0],
-                model_id=model_id,
-                optimize_hyperparameters=optimize_hyperparameters,
-                n_trials=n_trials,
-                cv_folds=cv_folds,
-                scoring_metric=scoring_metric,
-                apply_preprocessing=apply_preprocessing,
-                scaling_method=scaling_method,
-                validate_data=validate_data,
-                save_model=save_model,
-                task_type="classification",
-                enable_gpu=enable_gpu,
-                device=device
-            )
+        # Submit task to queue for async processing
+        queue_manager = get_queue_manager()
+        
+        task_params = {
+            'data_source': data_source,
+            'target_column': target_columns if target_dimension > 1 else target_columns[0],
+            'model_id': model_id,
+            'optimize_hyperparameters': optimize_hyperparameters,
+            'n_trials': n_trials,
+            'cv_folds': cv_folds,
+            'scoring_metric': scoring_metric,
+            'apply_preprocessing': apply_preprocessing,
+            'scaling_method': scaling_method,
+            'validate_data': validate_data,
+            'save_model': save_model,
+            'task_type': "classification",
+            'enable_gpu': enable_gpu,
+            'device': device
+        }
+        
+        # Submit to queue
+        task_id = await queue_manager.submit_task(
+            task_type="classification",
+            params=task_params,
+            user_id=None  # Can be added as parameter if needed
         )
+        
+        # Get queue status
+        queue_status = await queue_manager.get_queue_status()
+        
+        result = {
+            "status": "submitted",
+            "task_id": task_id,
+            "model_id": model_id,
+            "message": "Classification training task submitted to queue",
+            "queue_info": {
+                "position_in_queue": queue_status.get("queued_tasks", 0),
+                "running_tasks": queue_status.get("running_tasks", 0),
+                "max_concurrent": queue_status.get("max_concurrent_tasks", 3)
+            }
+        }
         
         logger.info("XGBoost classification training completed successfully")
         return result
@@ -295,10 +389,10 @@ async def train_xgboost_classifier(
         return {"error": error_msg, "traceback": traceback.format_exc()}
 
 @mcp.tool()
-async def predict_from_file(
+async def predict_from_file_xgbost(
     model_id: str,
     data_source: str,
-    output_path: str = None,
+    output_path: str = None, # type: ignore
     include_confidence: bool = True,
     generate_report: bool = True
 ) -> Dict[str, Any]:
@@ -331,7 +425,7 @@ async def predict_from_file(
         )
         
         logger.info("Batch prediction completed successfully")
-        return result
+        return serialize_for_json(result)
         
     except Exception as e:
         error_msg = f"Batch prediction failed: {str(e)}"
@@ -340,14 +434,14 @@ async def predict_from_file(
         return {"error": error_msg, "traceback": traceback.format_exc()}
 
 @mcp.tool()
-async def predict_from_values(
+async def predict_from_values_xgboost(
     model_id: str,
     feature_values: Union[List[float], List[List[float]], Dict[str, float], List[Dict[str, float]]],
-    feature_names: List[str] = None,
+    feature_names: List[str] = None, # type: ignore
     include_confidence: bool = True,
     save_intermediate_files: bool = True,
     generate_report: bool = True,
-    output_path: str = None
+    output_path: str = None # type: ignore
 ) -> Dict[str, Any]:
     """
     Make real-time predictions from feature values with CSV export and reporting.
@@ -386,7 +480,7 @@ async def predict_from_values(
         )
         
         logger.info("Real-time prediction completed successfully")
-        return result
+        return serialize_for_json(result)
         
     except Exception as e:
         error_msg = f"Real-time prediction failed: {str(e)}"
@@ -395,15 +489,15 @@ async def predict_from_values(
         return {"error": error_msg, "traceback": traceback.format_exc()}
 
 @mcp.tool()
-async def analyze_global_feature_importance(
+async def analyze_xgboost_global_feature_importance(
     model_id: str,
-    data_source: str = None,
+    data_source: str = None, # type: ignore
     analysis_types: List[str] = ["basic"],
     generate_plots: bool = True,
     generate_report: bool = True
 ) -> Dict[str, Any]:
     """
-    Analyze feature importance of a trained model.
+    Analyze feature importance of a trained model. shap patterns quantify interactions between features
     
     Args:
         model_id: Unique identifier for the trained model
@@ -493,7 +587,7 @@ async def analyze_global_feature_importance(
                 # Single target case
                 target_col = target_column
                 if target_col in df.columns:
-                    X_raw = df.drop(columns=[target_col])
+                    X_raw = df.drop(columns=[target_col]) # type: ignore
                     y_raw = df[target_col].values
                     logger.info(f"Data loaded - Features shape: {X_raw.shape}, Target shape: {y_raw.shape}")
                 else:
@@ -514,7 +608,7 @@ async def analyze_global_feature_importance(
                         
                         # Apply feature preprocessing
                         X = preprocessor.transform_features(X_raw)
-                        y = preprocessor.transform_target(y_raw)
+                        y = preprocessor.transform_target(y_raw) # type: ignore
                         
                         # Get processed feature names
                         feature_names = preprocessor.get_feature_names()
@@ -545,7 +639,7 @@ async def analyze_global_feature_importance(
             
             # Ensure data types are correct for analysis
             if hasattr(X, 'values'):
-                X = X.values
+                X = X.values # type: ignore
             if not isinstance(X, np.ndarray):
                 X = np.array(X)
             if not isinstance(y, np.ndarray):
@@ -609,7 +703,7 @@ async def analyze_global_feature_importance(
                             
                             logger.info(f"✓ Simplified multi-target SHAP analysis completed for {len(target_cols)} targets")
                         else:
-                            logger.warning(f"Unexpected SHAP values shape: {shap_values.shape if hasattr(shap_values, 'shape') else 'No shape'}")
+                            logger.warning(f"Unexpected SHAP values shape: {shap_values.shape if hasattr(shap_values, 'shape') else 'No shape'}") # type: ignore
                             results['shap_analysis_error'] = "Unexpected SHAP values format"
                             
                     except Exception as e:
@@ -705,8 +799,8 @@ async def analyze_global_feature_importance(
                         # Use standard report generation for single target
                         report_path = main_analyzer.generate_report(include_plots=generate_plots, format_type="html")
                         logger.info("✓ Single-target HTML report generated successfully")
-                    
-                    results['report_summary'] = f"You can find the html golbal feature importance report summary in {base_url}/static/{Path(report_path).relative_to(root_dir).as_posix()}"
+                    report_relative_path = get_static_url(report_path)
+                    results['report_summary_html_path'] = f"You can find the html golbal feature importance report summary in {report_relative_path}"
                 except Exception as e:
                     logger.warning(f"Report generation failed: {e}")
                     results['report_error'] = str(e)
@@ -728,7 +822,8 @@ async def analyze_global_feature_importance(
                     model_id=model_id
                 )
                 if archive_path:
-                    results['dowland_archive_path'] = f"You can download the global feature importance analysis details in {base_url}/download/file/{Path(archive_path).relative_to(root_dir.parent).as_posix()}"
+                    archive_relative_path = get_download_url(archive_path)
+                    results['dowland_archive_path'] = f"You can download the global feature importance analysis details in {archive_relative_path}"
 
                     logger.info(f"Global analysis results archived: {archive_path}")
             except Exception as e:
@@ -808,7 +903,8 @@ async def analyze_global_feature_importance(
         result = await asyncio.get_event_loop().run_in_executor(None, run_analysis)
         
         logger.info("Feature importance analysis completed successfully")
-        return result
+        # Serialize result to handle numpy arrays
+        return serialize_for_json(result)
         
     except Exception as e:
         error_msg = f"Feature importance analysis failed: {str(e)}"
@@ -817,7 +913,7 @@ async def analyze_global_feature_importance(
         return {"error": error_msg, "traceback": traceback.format_exc()}
 
 @mcp.tool()
-async def list_models() -> List[Dict[str, Any]]:
+async def list_xgboost_models() -> List[Dict[str, Any]]:
     """
     List all available trained models.
     
@@ -839,10 +935,10 @@ async def list_models() -> List[Dict[str, Any]]:
         error_msg = f"Failed to list models: {str(e)}"
         logger.error(error_msg)
         logger.error(traceback.format_exc())
-        return {"error": error_msg, "traceback": traceback.format_exc()}
+        return {"error": error_msg, "traceback": traceback.format_exc()} # type: ignore
 
 @mcp.tool()
-async def get_model_info(model_id: str) -> Dict[str, Any]:
+async def get_xgboost_model_info(model_id: str) -> Dict[str, Any]:
     """
     Get detailed information about a specific model.
     
@@ -870,7 +966,7 @@ async def get_model_info(model_id: str) -> Dict[str, Any]:
         return {"error": error_msg, "traceback": traceback.format_exc()}
 
 @mcp.tool()
-async def delete_model(model_id: str) -> Dict[str, Any]:
+async def delete_xgboost_model(model_id: str) -> Dict[str, Any]:
     """
     Delete a trained model.
     
@@ -904,11 +1000,11 @@ async def delete_model(model_id: str) -> Dict[str, Any]:
 # Add a health check tool
 
 @mcp.tool()
-async def analyze_local_feature_importance(
+async def analyze_xgboost_local_feature_importance(
     model_id: str,
-    sample_data: Union[List[float], List[List[float]], Dict[str, float], List[Dict[str, float]]] = None,
-    data_source: str = None,
-    plot_types: List[str] = ["waterfall", "force", "decision"],
+    sample_data: Union[List[float], List[List[float]], Dict[str, float], List[Dict[str, float]]] = None, # type: ignore
+    data_source: str = None, # type: ignore
+    plot_types: List[str] = ["waterfall", "force", "decision"], 
     generate_plots: bool = True,
     generate_report: bool = True
 ) -> Dict[str, Any]:
@@ -988,7 +1084,7 @@ async def analyze_local_feature_importance(
             else:
                 # Single target case
                 if target_column in df_background.columns:
-                    X_background_raw = df_background.drop(columns=[target_column])
+                    X_background_raw = df_background.drop(columns=[target_column]) # type: ignore
                     y_background = df_background[target_column].values
                     logger.info(f"Background data loaded (single-target) - Features shape: {X_background_raw.shape}")
                 else:
@@ -1018,7 +1114,7 @@ async def analyze_local_feature_importance(
                             sample_df = pd.DataFrame(sample_data)
                         elif isinstance(sample_data[0], list):
                             # Batch of samples as list of lists
-                            sample_df = pd.DataFrame(sample_data, columns=feature_names)
+                            sample_df = pd.DataFrame(sample_data, columns=feature_names) # type: ignore
                         else:
                             # Single sample as list
                             sample_df = pd.DataFrame([{feature_names[i]: val for i, val in enumerate(sample_data)}])
@@ -1103,12 +1199,12 @@ async def analyze_local_feature_importance(
                         logger.warning(f"Failed to apply preprocessing: {e}")
                         logger.info("Using raw data")
                         X_background = X_background_raw.values
-                        X_sample = sample_data_to_analyze.values if hasattr(sample_data_to_analyze, 'values') else np.array(sample_data_to_analyze)
+                        X_sample = sample_data_to_analyze.values if hasattr(sample_data_to_analyze, 'values') else np.array(sample_data_to_analyze) # type: ignore
                         feature_names = X_background_raw.columns.tolist()
                 else:
                     logger.info("No preprocessing pipeline found, using raw data")
                     X_background = X_background_raw.values
-                    X_sample = sample_data_to_analyze.values if hasattr(sample_data_to_analyze, 'values') else np.array(sample_data_to_analyze)
+                    X_sample = sample_data_to_analyze.values if hasattr(sample_data_to_analyze, 'values') else np.array(sample_data_to_analyze) # type: ignore
                     feature_names = X_background_raw.columns.tolist()
             else:
                 # Data is already processed or from same source
@@ -1125,7 +1221,7 @@ async def analyze_local_feature_importance(
                             sample_data_to_analyze = pd.DataFrame(sample_data_to_analyze)
                         elif isinstance(sample_data_to_analyze[0], list):
                             # List of lists
-                            sample_data_to_analyze = pd.DataFrame(sample_data_to_analyze, columns=feature_names_for_df)
+                            sample_data_to_analyze = pd.DataFrame(sample_data_to_analyze, columns=feature_names_for_df) # type: ignore
                         else:
                             # Single sample as list
                             sample_data_to_analyze = pd.DataFrame([{feature_names_for_df[i]: val for i, val in enumerate(sample_data_to_analyze)}])
@@ -1133,7 +1229,7 @@ async def analyze_local_feature_importance(
                         # Single sample as dictionary
                         sample_data_to_analyze = pd.DataFrame([sample_data_to_analyze])
                 
-                X_sample = sample_data_to_analyze.values if hasattr(sample_data_to_analyze, 'values') else np.array(sample_data_to_analyze)
+                X_sample = sample_data_to_analyze.values if hasattr(sample_data_to_analyze, 'values') else np.array(sample_data_to_analyze) # type: ignore
                 feature_names = X_background_raw.columns.tolist() if hasattr(X_background_raw, 'columns') else [f"feature_{i}" for i in range(X_background.shape[1])]
             
             # Ensure correct data types
@@ -1176,7 +1272,7 @@ async def analyze_local_feature_importance(
                 logger.info(f"Pre-set target names in analyzer: {target_names}")
             
             # Set preprocessor in analyzer for target inverse transformation
-            analyzer.preprocessor = preprocessor
+            analyzer.preprocessor = preprocessor # type: ignore
             
             # Determine analysis type based on sample data
             logger.info(f"Starting analysis - Sample shape: {X_sample.shape}, Is multi-target: {model_info.get('target_dimension', 1) > 1}")
@@ -1191,7 +1287,7 @@ async def analyze_local_feature_importance(
                     feature_names=feature_names,
                     sample_index=0,
                     model_metadata=model_info,
-                    original_sample_data=original_sample_data
+                    original_sample_data=original_sample_data # type: ignore
                 )
             else:
                 # Batch analysis
@@ -1203,7 +1299,7 @@ async def analyze_local_feature_importance(
                     feature_names=feature_names,
                     max_samples=50,
                     model_metadata=model_info,
-                    original_batch_data=original_sample_data
+                    original_batch_data=original_sample_data # type: ignore
                 )
             
             # Generate plots (optional)
@@ -1227,7 +1323,8 @@ async def analyze_local_feature_importance(
                     plot_paths=plot_paths,
                     format_type="html"
                 )
-                analysis_results['html_report'] = f"You can find the html local feature importance report summary in {base_url}/static/{Path(report_path).relative_to(root_dir.as_posix())}"
+                report_relative_path = get_static_url(report_path)
+                analysis_results['report_summary_html_path'] = f"You can find the html local feature importance report summary in {report_relative_path}"
             
             # Add raw SHAP data for direct access
             if hasattr(analyzer, 'shap_values') and analyzer.shap_values is not None:
@@ -1283,7 +1380,8 @@ async def analyze_local_feature_importance(
                     model_id=model_id
                 )
                 if archive_path:
-                    analysis_results['download_archive_path'] = f"You can download the local feature importance analysis details in {base_url}/download/file/{Path(archive_path).relative_to(root_dir.parent).as_posix()}"
+                    archive_relative_path = get_download_url(archive_path)
+                    analysis_results['download_archive_path'] = f"You can download the local feature importance analysis details in {archive_relative_path}"
                     # analysis_results['task_id'] = task_id
                     logger.info(f"Local analysis results archived: {archive_path}")
             except Exception as e:
@@ -1306,7 +1404,7 @@ async def analyze_local_feature_importance(
         return {
             "status": "success",
             "message": f"Local feature importance analysis completed for model {model_id}",
-            "results": result
+            "results": serialize_for_json(result)
         }
         
     except Exception as e:
@@ -1347,190 +1445,240 @@ def _create_analysis_archive(output_dir: Path, analysis_type: str, task_id: str,
         return str(zip_path)
     except Exception as e:
         logger.error(f"Failed to create analysis archive: {e}")
-        return None
+        return None # type: ignore
 
-async def test_train_xgboost_regressor():
-    """Test the train_xgboost_regressor function asynchronously."""
-    try:
-        data_source = r"D:\H-AF.xls"  # Use raw string to avoid escape issues
-        target_dimension = 1
-        optimize_hyperparameters = True
-        n_trials = 100
- 
+
+@mcp.tool()
+async def get_task_status(task_id: str) -> Dict[str, Any]:
+    """
+    Get the status of a training task.
+    
+    Args:
+        task_id: ID of the task to check
         
-        result = await train_xgboost_regressor(
-            data_source=data_source,
-            target_dimension=target_dimension,
-            optimize_hyperparameters=optimize_hyperparameters,
-            n_trials=n_trials
-        )
-
-        return result
-    except Exception as e:
-        print(f"Training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-
-async def test_train_xgboost_classifier():
-    """Test the train_xgboost_classifier function asynchronously."""
+    Returns:
+        Task status information
+    """
     try:
-        data_source = "D:\鸢尾花多分类数据集.xlsx" 
-        # data_source = r"D:\泰坦尼克号.xlsx" # Use raw string to avoid escape issues
-        target_dimension = 1
-        optimize_hyperparameters = True
-        n_trials = 10
-        cv_folds = 5
-        scoring_metric = "f1_weighted"
-        validate_data = True
-        save_model = True
-        apply_preprocessing = True
-        scaling_method = "standard"
-        enable_gpu = True
-        device = "auto"
-
-        print("Starting XGBoost classifier training test...")
-        result = await train_xgboost_classifier(
-            data_source=data_source,
-            target_dimension=target_dimension,
-            optimize_hyperparameters=optimize_hyperparameters,
-            n_trials=n_trials,
-            cv_folds=cv_folds,
-            scoring_metric=scoring_metric,
-            validate_data=validate_data,
-            save_model=save_model,
-            apply_preprocessing=apply_preprocessing,
-            scaling_method=scaling_method,
-            enable_gpu=enable_gpu,
-            device=device
-        )
-        print("Training completed successfully!")
-    except Exception as e:
-        print(f"Training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-
-async def test_predict_from_file():
-    """Test the predict_from_file function asynchronously."""
-    try:
-        model_id = "1ada0b3e-0271-4012-b53b-4a626786b08d"
-        data_source = r"D:\SLM预测.xls"
-        include_confidence = True
-        generate_report = True
+        queue_manager = get_queue_manager()
+        task_status = await queue_manager.get_task_status(task_id)
         
-        print("Starting prediction test...")
-        result = await predict_from_file(
-            model_id=model_id,
-            data_source=data_source,
-            include_confidence=include_confidence,
-            generate_report=generate_report
-        )
-        print("Prediction completed successfully!")
+        if not task_status:
+            return {"status": "error", "message": f"Task {task_id} not found"}
+            
+        # Enhance the response with more details for completed tasks
+        if task_status and task_status["status"] == "completed" and task_status.get("result"):
+            result = task_status["result"]
+            
+            # Serialize the entire response to handle numpy arrays
+            response = {
+                "status": "success",
+                "task": serialize_for_json(task_status),
+                "training_summary": {
+                    "model_id": result.get("model_id"),
+                    "model_directory": result.get("model_directory"),
+                    "task_type": result.get("task_type"),
+                    "performance_summary": result.get("performance_summary"),
+                    "training_time_seconds": result.get("training_time_seconds"),
+                    "feature_count": len(result.get("feature_importance", [])),
+                    "optimization_applied": bool(result.get("optimization_results")),
+                    "preprocessing_applied": result.get("preprocessing_applied", False)
+                },
+                "detailed_results": {
+                    "feature_importance": serialize_for_json(result.get("feature_importance", [])),
+                    "cross_validation_results": serialize_for_json(result.get("cross_validation_results", {})),
+                    "optimization_results": serialize_for_json(result.get("optimization_results", {})),
+                    "model_params": serialize_for_json(result.get("model_params", {})),
+                    "metadata": serialize_for_json(result.get("metadata", {}))
+                }
+            }
+            return response
+        else:
+            return {
+                "status": "success", 
+                "task": task_status
+            }
+        
     except Exception as e:
-        print(f"Prediction failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+        logger.error(f"Failed to get task status: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
-async def test_predict_form_values():
-
+@mcp.tool()
+async def list_training_tasks(user_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    List all training tasks or tasks for a specific user.
+    
+    Args:
+        user_id: Optional user ID filter
+        
+    Returns:
+        List of tasks
+    """
     try:
-        # TS-BE
-        #model_id = "9063132f-77f6-4bff-92d1-075c8280fd57"
-        # TS-AF
-        model_id = "69e194df-89e7-47d2-894c-6a9903138a81"
-        feature_values = [[36, 0.6, 1.9, 4.3],
-                          [28, 4.4, 3, 0.4],
-                          [18, 3.4, 4.6, 3.2],
-                          [15, 2.8, 4.8, 2.2],
-                          [10, 3.4, 5.4, 0.8]]
-
-
-        print("Starting prediction test...")
-        result = await predict_from_values(
-            model_id=model_id,
-            feature_values=feature_values
-        )
-        print("Prediction completed successfully!")
+        queue_manager = get_queue_manager()
+        tasks = await queue_manager.list_tasks(user_id=user_id)
+        
+        return {
+            "status": "success",
+            "tasks": tasks,
+            "count": len(tasks)
+        }
+        
     except Exception as e:
-        print(f"Prediction failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+        logger.error(f"Failed to list tasks: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
-async def test_global_feature_importance():
-    """Test the global_feature_importance function asynchronously."""
+@mcp.tool()
+async def get_queue_status() -> Dict[str, Any]:
+    """
+    Get overall training queue status.
+    
+    Returns:
+        Queue status information
+    """
     try:
-        # BE-BE
-        # model_id = "bb39af00-c7c4-43f4-b239-ce4d2627291d"
-        # BE-AF
-        #model_id = "9286c9d9-f6e7-4103-adff-238e5fa6f136"
-        # TS-BE
-        # model_id = "c4201b41-2ff9-48f9-87fb-ba8f6d2cfd12"
-        # TS-AF
-        # model_id = "0e996c43-ef6f-4094-80ef-488598b13436"
-        # H-BE
-        # model_id = "c2816c2b-0bfb-424b-90b6-7cf396ab0437"
-        # H-AF
-        model_id = "7b607a39-d746-4dc6-8eac-d21dbed2854a"
-        generate_report = True
-        analysis_types = ["basic","shap","permutation"]
-        print("Starting global feature importance test...")
-        result = await analyze_global_feature_importance(
-            model_id=model_id,
-            analysis_types=analysis_types,
-            generate_report=generate_report
-        )
-        print("Global feature importance test completed successfully!")
-        print(result)
+        queue_manager = get_queue_manager()
+        queue_status = await queue_manager.get_queue_status()
+        
+        return {
+            "status": "success",
+            "queue": queue_status
+        }
+        
     except Exception as e:
-        print(f"Global feature importance test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+        logger.error(f"Failed to get queue status: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
-async def test_local_feature_importance():
-    """Test the local_feature_importance function asynchronously."""
+@mcp.tool()
+async def cancel_training_task(task_id: str) -> Dict[str, Any]:
+    """
+    Cancel a training task.
+    
+    Args:
+        task_id: ID of the task to cancel
+        
+    Returns:
+        Cancellation result
+    """
     try:
-        # model_id = "1ada0b3e-0271-4012-b53b-4a626786b08d"
-        # sample_data = [
-        #     [35, 80, 130, 800],
-        #     [20, 35, 110, 2100]
-        # ]
-        #sample_data = [35, 80, 130, 800]
-        # model_id = "e433427d-ae2c-4886-b9a9-7259ddb83888"
-        # sample_data = [
-        #     [5.1,3.5,1.4,0.2],
-        #     [4.9,3.0,1.4,0.2],
-        #     [4.7,3.2,1.3,0.2],
-        #     [4.6,3.1,1.5,0.2],
-        #     [5.0,3.6,1.4,0.2]
-        # ]
-        # sample_data = [5.1,3.5,1.4,0.2]
-
-        #回归测试
-        # TS-BE
-        # model_id = "9063132f-77f6-4bff-92d1-075c8280fd57"
-        # TS-AF
-        model_id = "0e996c43-ef6f-4094-80ef-488598b13436"
-        feature_values = [36, 0.6, 1.9, 4.3]
-
-
-        # sample_data = [35, 80, 130, 800]  
-        print("Starting local feature importance test...")
-        result = await analyze_local_feature_importance(
-            model_id=model_id,
-            sample_data=feature_values
-        )
-        print("Local feature importance test completed successfully!")
+        queue_manager = get_queue_manager()
+        cancelled = await queue_manager.cancel_task(task_id)
+        
+        if cancelled:
+            return {
+                "status": "success",
+                "message": f"Task {task_id} cancelled successfully"
+            }
+        else:
+            return {
+                "status": "error", 
+                "message": f"Could not cancel task {task_id} - may not exist or already completed"
+            }
+        
     except Exception as e:
-        print(f"Local feature importance test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+        logger.error(f"Failed to cancel task: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+@mcp.tool()
+async def get_training_results(task_id: str) -> Dict[str, Any]:
+    """
+    Get detailed training results for a completed task.
+    
+    This tool provides comprehensive information about a completed training task,
+    including model performance, feature importance, cross-validation results,
+    hyperparameter optimization details, and model metadata.
+    
+    Args:
+        task_id: ID of the completed training task
+        
+    Returns:
+        Detailed training results and analysis
+    """
+    try:
+        queue_manager = get_queue_manager()
+        task_status = await queue_manager.get_task_status(task_id)
+        
+        if not task_status:
+            return {"status": "error", "message": f"Task {task_id} not found"}
+            
+        if task_status["status"] != "completed":
+            return {
+                "status": "error", 
+                "message": f"Task is not completed yet. Current status: {task_status['status']}"
+            }
+            
+        if not task_status.get("result"):
+            return {"status": "error", "message": "No training results available for this task"}
+            
+        result = task_status["result"]
+        
+        # Format detailed training results
+        training_results = {
+            "status": "success",
+            "task_info": {
+                "task_id": task_id,
+                "completed_at": task_status["completed_at"],
+                "training_time_seconds": result.get("training_time_seconds", 0)
+            },
+            "model_info": {
+                "model_id": result.get("model_id"),
+                "model_directory": result.get("model_directory"),
+                "task_type": result.get("task_type"),
+                "performance_summary": result.get("performance_summary", "No summary available")
+            },
+            "training_details": {
+                "model_parameters": result.get("model_params", {}),
+                "preprocessing_applied": result.get("preprocessing_applied", False),
+                "feature_count": len(result.get("feature_importance", [])),
+                "cross_validation_folds": result.get("cross_validation_results", {}).get("cv_folds", "N/A")
+            },
+            "performance_metrics": result.get("cross_validation_results", {}),
+            "feature_importance": result.get("feature_importance", []),
+            "hyperparameter_optimization": result.get("optimization_results", {}),
+            "model_metadata": result.get("metadata", {})
+        }
+        
+        # Add optimization summary if available
+        opt_results = result.get("optimization_results", {})
+        if opt_results:
+            training_results["optimization_summary"] = {
+                "best_score": opt_results.get("best_score", "N/A"),
+                "best_params": opt_results.get("best_params", {}),
+                "n_trials": opt_results.get("n_trials", "N/A"),
+                "optimization_applied": True
+            }
+        else:
+            training_results["optimization_summary"] = {"optimization_applied": False}
+            
+        return serialize_for_json(training_results)
+        
+    except Exception as e:
+        logger.error(f"Failed to get training results: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+async def main():
+    """Main function to run the MCP server."""
+    import mcp
+    
+    # Initialize server components
+    logger.info("Initializing XGBoost MCP server components...")
+    await initialize_server()
+    
+    # Print available tools
+    logger.info("Available MCP tools:")
+    
+    async with mcp.stdio.stdio_server() as (read_stream, write_stream): # type: ignore
+        await mcp.Server("xgboost-ml-tool", mcp.__version__).run( # type: ignore
+            read_stream,
+            write_stream,
+            mcp.ServerContext(), # type: ignore
+        )
 
 if __name__ == "__main__":
     import asyncio
+    # For testing individual functions
     #asyncio.run(test_train_xgboost_regressor())
-    asyncio.run(test_local_feature_importance())
+    #asyncio.run(test_local_feature_importance())
+    
+    # Start the MCP server with queue management
+    asyncio.run(main())

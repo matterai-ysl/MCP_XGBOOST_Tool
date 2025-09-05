@@ -1,417 +1,279 @@
-# Task Master AI - Claude Code Integration Guide
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is an XGBoost MCP Tool - a comprehensive machine learning server that provides XGBoost capabilities through the MCP (Model Context Protocol). The project implements a FastMCP-based server with advanced XGBoost functionality for regression and classification tasks.
 
 ## Essential Commands
 
-### Core Workflow Commands
-
+### Development & Testing
 ```bash
-# Project Setup
-task-master init                                    # Initialize Task Master in current project
-task-master parse-prd .taskmaster/docs/prd.txt      # Generate tasks from PRD document
-task-master models --setup                        # Configure AI models interactively
+# Install dependencies
+uv pip install -r requirements.txt
 
-# Daily Development Workflow
-task-master list                                   # Show all tasks with status
-task-master next                                   # Get next available task to work on
-task-master show <id>                             # View detailed task information (e.g., task-master show 1.2)
-task-master set-status --id=<id> --status=done    # Mark task complete
+# Run the main MCP server (standard MCP protocol)
+python -m src.mcp_xgboost_tool
 
-# Task Management
-task-master add-task --prompt="description" --research        # Add new task with AI assistance
-task-master expand --id=<id> --research --force              # Break task into subtasks
-task-master update-task --id=<id> --prompt="changes"         # Update specific task
-task-master update --from=<id> --prompt="changes"            # Update multiple tasks from ID onwards
-task-master update-subtask --id=<id> --prompt="notes"        # Add implementation notes to subtask
+# Run the single port server (HTTP + MCP combined)
+python single_port_server.py --host 0.0.0.0 --port 8100
 
-# Analysis & Planning
-task-master analyze-complexity --research          # Analyze task complexity
-task-master complexity-report                      # View complexity analysis
-task-master expand --all --research               # Expand all eligible tasks
+# Run tests
+pytest
 
-# Dependencies & Organization
-task-master add-dependency --id=<id> --depends-on=<id>       # Add task dependency
-task-master move --from=<id> --to=<id>                       # Reorganize task hierarchy
-task-master validate-dependencies                            # Check for dependency issues
-task-master generate                                         # Update task markdown files (usually auto-called)
+# Type checking (if mypy is installed)
+mypy src/
 ```
 
-## Key Files & Project Structure
+### Server Modes
 
-### Core Files
+The project supports two server modes:
 
-- `.taskmaster/tasks/tasks.json` - Main task data file (auto-managed)
-- `.taskmaster/config.json` - AI model configuration (use `task-master models` to modify)
-- `.taskmaster/docs/prd.txt` - Product Requirements Document for parsing
-- `.taskmaster/tasks/*.txt` - Individual task files (auto-generated from tasks.json)
-- `.env` - API keys for CLI usage
+1. **Standard MCP Server**: Traditional MCP protocol server (`python -m src.mcp_xgboost_tool`)
+2. **Single Port Server**: HTTP + MCP combined server (`python single_port_server.py`)
 
-### Claude Code Integration Files
+The single port server provides:
+- MCP endpoint: `http://localhost:8100/mcp`
+- File download API: `http://localhost:8100/api/download/file/{path}`
+- Static file serving: `http://localhost:8100/static/{path}`
+- Health checks: `http://localhost:8100/api/health`
 
-- `CLAUDE.md` - Auto-loaded context for Claude Code (this file)
-- `.claude/settings.json` - Claude Code tool allowlist and preferences
-- `.claude/commands/` - Custom slash commands for repeated workflows
-- `.mcp.json` - MCP server configuration (project-specific)
+## Core Architecture
 
-### Directory Structure
+### Key Components
 
+The codebase follows a modular architecture centered around XGBoost ML capabilities:
+
+- **`mcp_server.py`**: Main MCP server implementation using FastMCP
+- **`xgboost_wrapper.py`**: Core XGBoost algorithm wrapper with enhanced functionality
+- **`training.py`**: Training engine for model creation and management
+- **`prediction.py`**: Prediction engine for batch and real-time predictions  
+- **`feature_importance.py`**: Global feature importance analysis
+- **`local_feature_importance.py`**: Local/instance-level feature importance (SHAP, LIME)
+- **`hyperparameter_optimizer.py`**: Optuna-based hyperparameter optimization
+- **`model_manager.py`**: Model persistence and lifecycle management
+
+### Data Processing Pipeline
+
+- **`data_preprocessing.py`**: Data cleaning and feature engineering
+- **`data_validator.py`**: Input validation and data quality checks
+- **`data_utils.py`**: Common data manipulation utilities
+- **`cross_validation.py`**: Cross-validation strategies and evaluation
+
+### Analysis & Reporting
+
+- **`html_report_generator.py`**: Comprehensive HTML report generation
+- **`academic_report_generator.py`**: Academic-style analysis reports
+- **`visualization_generator.py`**: Chart and plot generation
+- **`metrics_evaluator.py`**: Model performance metrics calculation
+- **`performance_analysis.py`**: Detailed performance analysis tools
+
+### Error Handling & Optimization
+
+- **`xgboost_error_handler.py`**: XGBoost-specific error handling and validation
+- **`xgboost_data_optimizer.py`**: Data optimization for XGBoost performance
+- **`training_monitor.py`**: Training progress monitoring and callbacks
+- **`performance_monitoring.py`**: Runtime performance monitoring
+
+## MCP Tools Available
+
+The server provides 14 core MCP tools:
+
+### Training Tools (Queue-based)
+1. **`train_xgboost_regressor`** - Submit XGBoost regression training task to queue (returns task_id)
+2. **`train_xgboost_classifier`** - Submit XGBoost classification training task to queue (returns task_id)
+
+### Prediction Tools
+3. **`predict_from_file`** - Batch predictions from CSV files
+4. **`predict_from_values`** - Real-time predictions from input values
+
+### Analysis Tools
+5. **`analyze_global_feature_importance`** - Global feature importance analysis
+6. **`analyze_local_feature_importance`** - Local feature importance (SHAP/LIME)
+
+### Model Management Tools
+7. **`list_models`** - List all trained models with metadata
+8. **`get_model_info`** - Detailed model information and statistics
+9. **`delete_model`** - Remove trained models and associated files
+
+### Queue Management Tools
+10. **`get_task_status`** - Get status of a training task by task_id
+11. **`get_training_results`** - Get detailed training results for a completed task
+12. **`list_training_tasks`** - List all training tasks with their status
+13. **`get_queue_status`** - Get overall training queue status
+14. **`cancel_training_task`** - Cancel a training task by task_id
+
+## File Structure
+
+### Models Directory (`trained_models/`)
+
+Each trained model creates a directory structure:
 ```
-project/
-├── .taskmaster/
-│   ├── tasks/              # Task files directory
-│   │   ├── tasks.json      # Main task database
-│   │   ├── task-1.md      # Individual task files
-│   │   └── task-2.md
-│   ├── docs/              # Documentation directory
-│   │   ├── prd.txt        # Product requirements
-│   ├── reports/           # Analysis reports directory
-│   │   └── task-complexity-report.json
-│   ├── templates/         # Template files
-│   │   └── example_prd.txt  # Example PRD template
-│   └── config.json        # AI models & settings
-├── .claude/
-│   ├── settings.json      # Claude Code configuration
-│   └── commands/         # Custom slash commands
-├── .env                  # API keys
-├── .mcp.json            # MCP configuration
-└── CLAUDE.md            # This file - auto-loaded by Claude Code
+trained_models/{model_id}/
+├── model.joblib                    # Serialized XGBoost model
+├── preprocessing_pipeline.pkl      # Data preprocessing pipeline
+├── metadata.json                   # Model metadata and hyperparameters
+├── feature_importance.csv          # Feature importance scores
+├── evaluation_metrics.csv          # Performance metrics
+├── cross_validation_results.json   # CV results
+├── feature_analysis/               # Feature analysis outputs
+│   ├── global/                     # Global importance plots
+│   └── local/                      # Local importance analysis
+└── optimization_history.csv        # Hyperparameter optimization history
 ```
 
-## MCP Integration
+### Configuration
 
-Task Master provides an MCP server that Claude Code can connect to. Configure in `.mcp.json`:
+- **`config.py`**: Server configuration (port, URLs, paths)
+- Base URL: `http://localhost:8100`
+- Default port: `8100`
+- Models directory: `./trained_models`
 
-```json
-{
-  "mcpServers": {
-    "task-master-ai": {
-      "command": "npx",
-      "args": ["-y", "--package=task-master-ai", "task-master-ai"],
-      "env": {
-        "ANTHROPIC_API_KEY": "your_key_here",
-        "PERPLEXITY_API_KEY": "your_key_here",
-        "OPENAI_API_KEY": "OPENAI_API_KEY_HERE",
-        "GOOGLE_API_KEY": "GOOGLE_API_KEY_HERE",
-        "XAI_API_KEY": "XAI_API_KEY_HERE",
-        "OPENROUTER_API_KEY": "OPENROUTER_API_KEY_HERE",
-        "MISTRAL_API_KEY": "MISTRAL_API_KEY_HERE",
-        "AZURE_OPENAI_API_KEY": "AZURE_OPENAI_API_KEY_HERE",
-        "OLLAMA_API_KEY": "OLLAMA_API_KEY_HERE"
-      }
-    }
-  }
-}
+## Development Patterns
+
+### Adding New MCP Tools
+
+When adding new MCP tools, follow this pattern in `mcp_server.py`:
+
+```python
+@mcp.tool()
+def your_tool_name(param1: str, param2: int = 100) -> Dict[str, Any]:
+    """Tool description for MCP clients."""
+    try:
+        # Implementation here
+        return {"status": "success", "result": result}
+    except Exception as e:
+        logger.error(f"Error in your_tool_name: {str(e)}")
+        return {"status": "error", "message": str(e)}
 ```
 
-### Essential MCP Tools
+### Error Handling
 
-```javascript
-help; // = shows available taskmaster commands
-// Project setup
-initialize_project; // = task-master init
-parse_prd; // = task-master parse-prd
+Use the XGBoost error handler decorator for XGBoost-specific operations:
 
-// Daily workflow
-get_tasks; // = task-master list
-next_task; // = task-master next
-get_task; // = task-master show <id>
-set_task_status; // = task-master set-status
+```python
+from .xgboost_error_handler import xgboost_error_handler
 
-// Task management
-add_task; // = task-master add-task
-expand_task; // = task-master expand
-update_task; // = task-master update-task
-update_subtask; // = task-master update-subtask
-update; // = task-master update
-
-// Analysis
-analyze_project_complexity; // = task-master analyze-complexity
-complexity_report; // = task-master complexity-report
+@xgboost_error_handler
+def your_xgboost_function():
+    # XGBoost operations here
+    pass
 ```
 
-## Claude Code Workflow Integration
+### Model ID Generation
 
-### Standard Development Workflow
+Model IDs are generated using UUID4 format. Always use the pattern:
+```python
+model_id = str(uuid.uuid4())
+```
 
-#### 1. Project Initialization
+### Data Validation
 
+Always validate input data using the DataValidator:
+```python
+validator = DataValidator()
+validation_result = validator.validate_data(df, target_column)
+if not validation_result["is_valid"]:
+    raise ValueError(validation_result["message"])
+```
+
+## Testing
+
+The project includes comprehensive testing with pytest. Tests should cover:
+- MCP tool functionality
+- XGBoost wrapper operations  
+- Data validation and preprocessing
+- Error handling scenarios
+- Model persistence and loading
+
+Run tests with:
 ```bash
-# Initialize Task Master
-task-master init
-
-# Create or obtain PRD, then parse it
-task-master parse-prd .taskmaster/docs/prd.txt
-
-# Analyze complexity and expand tasks
-task-master analyze-complexity --research
-task-master expand --all --research
+pytest tests/ -v
 ```
 
-If tasks already exist, another PRD can be parsed (with new information only!) using parse-prd with --append flag. This will add the generated tasks to the existing list of tasks..
+## Training Workflow (Queue-Based)
 
-#### 2. Daily Development Loop
+The training tools now use an asynchronous queue-based approach for better concurrency:
 
-```bash
-# Start each session
-task-master next                           # Find next available task
-task-master show <id>                     # Review task details
+### 1. Submit Training Task
+```python
+# MCP client call
+result = await mcp_client.call_tool("train_xgboost_regressor", {
+    "data_source": "/path/to/data.csv",
+    "target_dimension": 1,
+    "optimize_hyperparameters": True,
+    "n_trials": 50,
+    "cv_folds": 5
+})
 
-# During implementation, check in code context into the tasks and subtasks
-task-master update-subtask --id=<id> --prompt="implementation notes..."
-
-# Complete tasks
-task-master set-status --id=<id> --status=done
+# Returns immediately with task_id
+task_id = result["task_id"]
+model_id = result["model_id"]
 ```
 
-#### 3. Multi-Claude Workflows
+### 2. Monitor Progress
+```python
+# Check task status
+status_result = await mcp_client.call_tool("get_task_status", {
+    "task_id": task_id
+})
 
-For complex projects, use multiple Claude Code sessions:
-
-```bash
-# Terminal 1: Main implementation
-cd project && claude
-
-# Terminal 2: Testing and validation
-cd project-test-worktree && claude
-
-# Terminal 3: Documentation updates
-cd project-docs-worktree && claude
+# Status can be: "queued", "running", "completed", "failed", "cancelled"
+print(f"Task status: {status_result['task']['status']}")
 ```
 
-### Custom Slash Commands
-
-Create `.claude/commands/taskmaster-next.md`:
-
-```markdown
-Find the next available Task Master task and show its details.
-
-Steps:
-
-1. Run `task-master next` to get the next task
-2. If a task is available, run `task-master show <id>` for full details
-3. Provide a summary of what needs to be implemented
-4. Suggest the first implementation step
+### 3. Access Results
+```python
+# Once completed, get detailed training results
+if status_result['task']['status'] == 'completed':
+    training_results = await mcp_client.call_tool("get_training_results", {
+        "task_id": task_id
+    })
+    print(f"Performance: {training_results['model_info']['performance_summary']}")
+    print(f"Features: {training_results['training_details']['feature_count']}")
+    print(f"Optimization applied: {training_results['optimization_summary']['optimization_applied']}")
+    
+    # Access detailed results
+    feature_importance = training_results['feature_importance']
+    cv_results = training_results['performance_metrics']
+    best_params = training_results['optimization_summary']['best_params']
 ```
 
-Create `.claude/commands/taskmaster-complete.md`:
+### 4. Queue Management
+```python
+# Get overall queue status
+queue_status = await mcp_client.call_tool("get_queue_status", {})
+print(f"Running tasks: {queue_status['queue']['running_tasks']}")
 
-```markdown
-Complete a Task Master task: $ARGUMENTS
+# List all tasks
+tasks = await mcp_client.call_tool("list_training_tasks", {})
+print(f"Total tasks: {tasks['count']}")
 
-Steps:
-
-1. Review the current task with `task-master show $ARGUMENTS`
-2. Verify all implementation is complete
-3. Run any tests related to this task
-4. Mark as complete: `task-master set-status --id=$ARGUMENTS --status=done`
-5. Show the next available task with `task-master next`
+# Cancel a task if needed
+cancel_result = await mcp_client.call_tool("cancel_training_task", {
+    "task_id": task_id
+})
 ```
 
-## Tool Allowlist Recommendations
+## Concurrency Features
 
-Add to `.claude/settings.json`:
+- **Non-blocking Training**: Training requests return immediately with task_id
+- **Concurrent Processing**: Multiple users can train models simultaneously
+- **Resource Control**: Configurable maximum concurrent tasks (default: 3)
+- **Queue Management**: Tasks are queued and processed in order
+- **Status Tracking**: Real-time task status and progress monitoring
+- **Task Cancellation**: Cancel long-running tasks if needed
 
-```json
-{
-  "allowedTools": [
-    "Edit",
-    "Bash(task-master *)",
-    "Bash(git commit:*)",
-    "Bash(git add:*)",
-    "Bash(npm run *)",
-    "mcp__task_master_ai__*"
-  ]
-}
-```
+## Dependencies
 
-## Configuration & Setup
-
-### API Keys Required
-
-At least **one** of these API keys must be configured:
-
-- `ANTHROPIC_API_KEY` (Claude models) - **Recommended**
-- `PERPLEXITY_API_KEY` (Research features) - **Highly recommended**
-- `OPENAI_API_KEY` (GPT models)
-- `GOOGLE_API_KEY` (Gemini models)
-- `MISTRAL_API_KEY` (Mistral models)
-- `OPENROUTER_API_KEY` (Multiple models)
-- `XAI_API_KEY` (Grok models)
-
-An API key is required for any provider used across any of the 3 roles defined in the `models` command.
-
-### Model Configuration
-
-```bash
-# Interactive setup (recommended)
-task-master models --setup
-
-# Set specific models
-task-master models --set-main claude-3-5-sonnet-20241022
-task-master models --set-research perplexity-llama-3.1-sonar-large-128k-online
-task-master models --set-fallback gpt-4o-mini
-```
-
-## Task Structure & IDs
-
-### Task ID Format
-
-- Main tasks: `1`, `2`, `3`, etc.
-- Subtasks: `1.1`, `1.2`, `2.1`, etc.
-- Sub-subtasks: `1.1.1`, `1.1.2`, etc.
-
-### Task Status Values
-
-- `pending` - Ready to work on
-- `in-progress` - Currently being worked on
-- `done` - Completed and verified
-- `deferred` - Postponed
-- `cancelled` - No longer needed
-- `blocked` - Waiting on external factors
-
-### Task Fields
-
-```json
-{
-  "id": "1.2",
-  "title": "Implement user authentication",
-  "description": "Set up JWT-based auth system",
-  "status": "pending",
-  "priority": "high",
-  "dependencies": ["1.1"],
-  "details": "Use bcrypt for hashing, JWT for tokens...",
-  "testStrategy": "Unit tests for auth functions, integration tests for login flow",
-  "subtasks": []
-}
-```
-
-## Claude Code Best Practices with Task Master
-
-### Context Management
-
-- Use `/clear` between different tasks to maintain focus
-- This CLAUDE.md file is automatically loaded for context
-- Use `task-master show <id>` to pull specific task context when needed
-
-### Iterative Implementation
-
-1. `task-master show <subtask-id>` - Understand requirements
-2. Explore codebase and plan implementation
-3. `task-master update-subtask --id=<id> --prompt="detailed plan"` - Log plan
-4. `task-master set-status --id=<id> --status=in-progress` - Start work
-5. Implement code following logged plan
-6. `task-master update-subtask --id=<id> --prompt="what worked/didn't work"` - Log progress
-7. `task-master set-status --id=<id> --status=done` - Complete task
-
-### Complex Workflows with Checklists
-
-For large migrations or multi-step processes:
-
-1. Create a markdown PRD file describing the new changes: `touch task-migration-checklist.md` (prds can be .txt or .md)
-2. Use Taskmaster to parse the new prd with `task-master parse-prd --append` (also available in MCP)
-3. Use Taskmaster to expand the newly generated tasks into subtasks. Consdier using `analyze-complexity` with the correct --to and --from IDs (the new ids) to identify the ideal subtask amounts for each task. Then expand them.
-4. Work through items systematically, checking them off as completed
-5. Use `task-master update-subtask` to log progress on each task/subtask and/or updating/researching them before/during implementation if getting stuck
-
-### Git Integration
-
-Task Master works well with `gh` CLI:
-
-```bash
-# Create PR for completed task
-gh pr create --title "Complete task 1.2: User authentication" --body "Implements JWT auth system as specified in task 1.2"
-
-# Reference task in commits
-git commit -m "feat: implement JWT auth (task 1.2)"
-```
-
-### Parallel Development with Git Worktrees
-
-```bash
-# Create worktrees for parallel task development
-git worktree add ../project-auth feature/auth-system
-git worktree add ../project-api feature/api-refactor
-
-# Run Claude Code in each worktree
-cd ../project-auth && claude    # Terminal 1: Auth work
-cd ../project-api && claude     # Terminal 2: API work
-```
-
-## Troubleshooting
-
-### AI Commands Failing
-
-```bash
-# Check API keys are configured
-cat .env                           # For CLI usage
-
-# Verify model configuration
-task-master models
-
-# Test with different model
-task-master models --set-fallback gpt-4o-mini
-```
-
-### MCP Connection Issues
-
-- Check `.mcp.json` configuration
-- Verify Node.js installation
-- Use `--mcp-debug` flag when starting Claude Code
-- Use CLI as fallback if MCP unavailable
-
-### Task File Sync Issues
-
-```bash
-# Regenerate task files from tasks.json
-task-master generate
-
-# Fix dependency issues
-task-master fix-dependencies
-```
-
-DO NOT RE-INITIALIZE. That will not do anything beyond re-adding the same Taskmaster core files.
-
-## Important Notes
-
-### AI-Powered Operations
-
-These commands make AI calls and may take up to a minute:
-
-- `parse_prd` / `task-master parse-prd`
-- `analyze_project_complexity` / `task-master analyze-complexity`
-- `expand_task` / `task-master expand`
-- `expand_all` / `task-master expand --all`
-- `add_task` / `task-master add-task`
-- `update` / `task-master update`
-- `update_task` / `task-master update-task`
-- `update_subtask` / `task-master update-subtask`
-
-### File Management
-
-- Never manually edit `tasks.json` - use commands instead
-- Never manually edit `.taskmaster/config.json` - use `task-master models`
-- Task markdown files in `tasks/` are auto-generated
-- Run `task-master generate` after manual changes to tasks.json
-
-### Claude Code Session Management
-
-- Use `/clear` frequently to maintain focused context
-- Create custom slash commands for repeated Task Master workflows
-- Configure tool allowlist to streamline permissions
-- Use headless mode for automation: `claude -p "task-master next"`
-
-### Multi-Task Updates
-
-- Use `update --from=<id>` to update multiple future tasks
-- Use `update-task --id=<id>` for single task updates
-- Use `update-subtask --id=<id>` for implementation logging
-
-### Research Mode
-
-- Add `--research` flag for research-based AI enhancement
-- Requires a research model API key like Perplexity (`PERPLEXITY_API_KEY`) in environment
-- Provides more informed task creation and updates
-- Recommended for complex technical tasks
-
----
-
-_This guide ensures Claude Code has immediate access to Task Master's essential functionality for agentic development workflows._
+Key dependencies and their purposes:
+- **xgboost>=2.0.0**: Core ML algorithm
+- **scikit-learn>=1.3.0**: ML utilities and metrics
+- **pandas>=2.0.0**: Data manipulation
+- **optuna>=3.4.0**: Hyperparameter optimization (runs asynchronously)
+- **shap>=0.47.0**: Model explainability
+- **fastapi>=0.104.0**: Web framework
+- **mcp>=1.0.0**: MCP protocol implementation
+- **matplotlib/seaborn/plotly**: Visualization libraries
+- **asyncio**: Async queue management and concurrency control

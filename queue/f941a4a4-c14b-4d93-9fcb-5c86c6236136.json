@@ -1,0 +1,21 @@
+{
+  "task_id": "f941a4a4-c14b-4d93-9fcb-5c86c6236136",
+  "user_id": null,
+  "task_type": "regression",
+  "params": {
+    "data_source": "quick_test.csv",
+    "target_column": "target",
+    "optimize_hyperparameters": false,
+    "cv_folds": 3,
+    "save_model": false,
+    "validate_data": true,
+    "apply_preprocessing": false
+  },
+  "status": "failed",
+  "created_at": "2025-09-05T08:52:49.341872",
+  "started_at": "2025-09-05T08:52:49.342057",
+  "completed_at": "2025-09-05T08:52:50.414028",
+  "progress": 0.0,
+  "error_message": "\"Target column 'target' not found in data\"",
+  "result": null
+}

@@ -8,6 +8,7 @@ Optuna hyperparameter optimization and cross-validation.
 import logging
 import uuid
 import json
+import asyncio
 from typing import Dict, Any, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
@@ -29,7 +30,7 @@ from .training_monitor import TrainingMonitor
 from .academic_report_generator import AcademicReportGenerator
 from .html_report_generator import HTMLReportGenerator
 from .visualization_generator import VisualizationGenerator
-base_url = "http://127.0.0.1:8080"
+from .config import BASE_URL,get_download_url,get_static_url
 logger = logging.getLogger(__name__)
 
 class TrainingEngine:
@@ -902,7 +903,7 @@ class TrainingEngine:
                 # Save model using model manager
                 model_path = self.model_manager.save_model(
                     model=xgb_model.model,  # Save the actual XGBoost model
-                    model_id=model_id,
+                    model_id=model_id, # type: ignore
                     metadata=comprehensive_metadata
                 )
                 
@@ -1017,7 +1018,8 @@ class TrainingEngine:
             
             # Store optimizer instance for later access (even if optimization failed)
             self.optimizer = optimizer
-            
+            report_relative_path = get_static_url(html_report_path) # type: ignore
+            zip_relative_path = get_download_url(zip_path) # type: ignore
             # Compile results
             results = {
                 'model_id': model_id,
@@ -1031,10 +1033,10 @@ class TrainingEngine:
                 'target_names': target_column,
                 'best_hyperparameters': optimized_params or base_params,
                 'feature_importance': feature_importance,
-                'performance_summary': self._generate_performance_summary(enhanced_cv_results, final_task_type, scoring_metric),
+                'performance_summary': self._generate_performance_summary(enhanced_cv_results, final_task_type, scoring_metric), # type: ignore
                 # "html_report_path": f"{base_url}/static/{Path(html_report_path).relative_to(self.models_dir.parent).as_posix()}",
-                "trained_report_summary":f"You can find the html trained report summary in {base_url}/static/{Path(html_report_path).relative_to(self.models_dir).as_posix()}",
-                "trained_details":f"""All detailed training data are saved in {base_url}/download/file/{Path(zip_path).relative_to(self.models_dir.parent).as_posix()},
+                "trained_report_summary_html_path":f"You can find the html trained report summary in {report_relative_path}",
+                "trained_details":f"""All detailed training data are saved in {zip_relative_path},
                 which can be downloaded by users for reproducibility and academic research reference.  """
                 # "model_archive_path": zip_path if 'zip_path' in locals() else None,
                 # "download_info": {
@@ -1052,6 +1054,357 @@ class TrainingEngine:
             
         except Exception as e:
             logger.error(f"Training failed: {str(e)}")
+            raise
+
+    async def train_xgboost_async(self, 
+                                data_source: Union[str, pd.DataFrame],
+                                target_column: Optional[str] = None,
+                                model_id: Optional[str] = None,
+                                optimize_hyperparameters: bool = True,
+                                n_trials: int = 100,
+                                cv_folds: int = 5,
+                                optimization_algorithm: str = "TPE",
+                                scoring_metric: Optional[str] = None,
+                                validate_data: bool = True,
+                                save_model: bool = True,
+                                apply_preprocessing: bool = True,
+                                scaling_method: str = "standard",
+                                task_type: str = None,
+                                enable_gpu: bool = True,
+                                device: str = "auto",
+                                **model_params) -> Dict[str, Any]:
+        """
+        Asynchronous version of train_xgboost that runs hyperparameter optimization
+        in a separate thread pool to prevent blocking the event loop.
+        
+        This method is identical to train_xgboost but uses async hyperparameter 
+        optimization for better concurrency support.
+        
+        Args:
+            Same as train_xgboost method
+            
+        Returns:
+            Dictionary with training results
+        """
+        try:
+            start_time = datetime.now()
+            
+            # Load and prepare data (synchronous operations are fast)
+            X, y, feature_names = self._load_and_prepare_data(
+                data_source, target_column, validate_data
+            )
+            
+            # Auto-detect task type
+            if task_type is None:
+                temp_wrapper = XGBoostWrapper()
+                final_task_type = temp_wrapper._detect_task_type(y)
+                logger.info(f"Auto-detected task type: {final_task_type}")
+            else:
+                final_task_type = task_type
+            
+            # Generate model ID if needed
+            if model_id is None:
+                model_id = str(uuid.uuid4())
+                
+            # Setup model directory
+            model_directory = self.models_dir / model_id
+            model_directory.mkdir(exist_ok=True)
+            
+            # Get base model parameters
+            base_params = {
+                'random_state': 42,
+                'n_jobs': -1,
+                'enable_categorical': True,
+            }
+            base_params.update(model_params)
+            
+            # Validate data if required (validate original data with target column)
+            validation_results = {}
+            if validate_data:
+                # Load original data for validation
+                if isinstance(data_source, str):
+                    df_for_validation = self.data_processor.load_data(data_source)
+                else:
+                    df_for_validation = data_source.copy()
+                    
+                validation_results = self.data_validator.validate_dataset(
+                    df_for_validation, 
+                    target_column or 'target',
+                    final_task_type
+                )
+                if not validation_results.get('data_ready_for_training', True):
+                    logger.warning(f"Data validation issues found. Quality score: {validation_results.get('quality_assessment', {}).get('overall_score', 'Unknown')}")
+            
+            # Store original data info before preprocessing
+            original_feature_names = feature_names.copy() if feature_names else None
+            original_target_column_name = target_column
+            X_original = X.copy() if hasattr(X, 'copy') else np.copy(X)
+            y_original = y.copy() if hasattr(y, 'copy') else np.copy(y)
+            
+            # Apply preprocessing
+            preprocessing_applied = False
+            target_preprocessing_applied = False
+            preprocessing_pipeline_path = None
+            preprocessing_info = None
+            label_mapping = None
+            
+            # Always preprocess targets when needed (copied from sync method logic)
+            # For classification with string targets, we MUST preprocess regardless of apply_preprocessing flag
+            if final_task_type == "classification" or apply_preprocessing:
+                logger.info("Applying data preprocessing (including target preprocessing)...")
+                enhanced_preprocessor = DataPreprocessor(use_one_hot=False)
+                
+                if apply_preprocessing:
+                    # Apply feature preprocessing
+                    X = enhanced_preprocessor.fit_transform_features(
+                        X, scaling_method=scaling_method
+                    )
+                    preprocessing_applied = True
+                    logger.info(f"Feature preprocessing completed")
+                
+                # Always apply target preprocessing for classification or when requested
+                y = enhanced_preprocessor.fit_transform_target(
+                    y, task_type=final_task_type, target_scaling_method=scaling_method
+                )
+                target_preprocessing_applied = True
+                logger.info(f"Target preprocessing applied for {final_task_type} task")
+                
+                # Store preprocessor and get label mapping
+                self.data_preprocessor = enhanced_preprocessor
+                label_mapping = getattr(enhanced_preprocessor, 'label_mapping', None)
+            
+            # Get preprocessing info if preprocessor was created
+            if hasattr(self, 'data_preprocessor') and self.data_preprocessor:
+                preprocessing_info = self.data_preprocessor.get_preprocessing_info()
+                
+                if preprocessing_applied:
+                    preprocessing_pipeline_path = model_directory / "preprocessing_pipeline.pkl"
+                
+                if preprocessing_info.get('preprocessor'):
+                    joblib.dump(preprocessing_info['preprocessor'], preprocessing_pipeline_path)
+                    logger.info(f"Preprocessing pipeline saved to: {preprocessing_pipeline_path}")
+            
+            # Determine scoring metric
+            if scoring_metric is None:
+                scoring_metric = "f1_weighted" if final_task_type == "classification" else "neg_mean_absolute_error"
+            
+            # Hyperparameter optimization (ASYNC)
+            optimization_results = {}
+            optimizer = None
+            optimized_params = None
+            
+            if optimize_hyperparameters:
+                try:
+                    logger.info("Starting ASYNC hyperparameter optimization...")
+                    
+                    optimizer = HyperparameterOptimizer(
+                        sampler_type=optimization_algorithm.upper(),
+                        n_trials=n_trials,
+                        cv_folds=cv_folds,
+                        random_state=42,
+                        enable_gpu=enable_gpu,
+                        device=device
+                    )
+                    
+                    # Use ASYNC optimization method
+                    optimized_params, best_score, trials_df = await optimizer.optimize_async(
+                        X, y, 
+                        task_type=final_task_type, 
+                        scoring_metric=scoring_metric,
+                        save_dir=str(model_directory)
+                    )
+                    
+                    # Get comprehensive optimization results
+                    optimization_results = optimizer.get_optimization_results()
+                    optimization_results['best_score'] = best_score
+                    optimization_results['trials_dataframe'] = trials_df
+                    
+                    logger.info(f"ASYNC optimization completed. Best score: {best_score}")
+                    logger.info(f"Best parameters: {optimized_params}")
+                    
+                except Exception as e:
+                    logger.error(f"Hyperparameter optimization failed: {str(e)}")
+                    logger.info("Continuing with default parameters...")
+                    optimized_params = None
+                    optimization_results = {}
+            
+            # Combine optimized parameters with base parameters
+            final_params = base_params.copy()
+            if optimized_params:
+                final_params.update(optimized_params)
+                logger.info(f"Using optimized parameters: {optimized_params}")
+            else:
+                logger.info("Using base parameters (optimization skipped or failed)")
+            
+            # Initialize and train XGBoost model
+            xgb_model = XGBoostWrapper(
+                task_type=final_task_type,
+                enable_gpu=enable_gpu,
+                device=device,
+                **final_params
+            )
+            
+            logger.info(f"Training XGBoost {final_task_type} model...")
+            trained_model = xgb_model.fit(X, y)
+            
+            # Cross-validation evaluation
+            logger.info("Performing cross-validation...")
+            cv_results = xgb_model.cross_validate(
+                X, y, 
+                cv_folds=cv_folds,
+                return_train_score=True,
+                random_state=42
+            )
+            
+            # Calculate feature importance
+            feature_importance = xgb_model.get_feature_importance()
+            
+            # Save model and metadata with safe serialization
+            try:
+                comprehensive_metadata = {
+                    'model_id': model_id,
+                    'task_type': final_task_type,
+                    'algorithm': 'XGBoost',
+                    'created_at': datetime.now().isoformat(),
+                    'data_shape': {
+                        'n_samples': int(X.shape[0]),
+                        'n_features': int(X.shape[1])
+                    },
+                    'target_dimension': int(len(np.unique(y))) if final_task_type == "classification" else 1,
+                    'target_name': target_column,
+                    'feature_names': feature_names,
+                    'model_params': final_params,
+                    'optimization_results': optimization_results,
+                    'cross_validation_results': cv_results,
+                    'feature_importance': feature_importance,
+                    'validation_results': validation_results,
+                    'preprocessing_applied': preprocessing_applied,
+                    'target_preprocessing_applied': target_preprocessing_applied,
+                    'scaling_method': scaling_method if preprocessing_applied else None,
+                    'label_mapping': label_mapping,
+                    'scoring_metric': scoring_metric,
+                    'training_time_seconds': (datetime.now() - start_time).total_seconds(),
+                    'tool_input_details': {
+                        'data_source': data_source if isinstance(data_source, str) else 'DataFrame',
+                        'optimize_hyperparameters': optimize_hyperparameters,
+                        'n_trials': n_trials,
+                        'cv_folds': cv_folds,
+                        'scoring_metric': scoring_metric,
+                        'validate_data': validate_data,
+                        'save_model': save_model,
+                        'apply_preprocessing': apply_preprocessing,
+                        'scaling_method': scaling_method,
+                        'task_type': final_task_type,
+                        'enable_gpu': enable_gpu,
+                        'device': device
+                    }
+                }
+            except Exception as e:
+                logger.error(f"Error creating comprehensive metadata: {str(e)}")
+                logger.error(f"cv_results type: {type(cv_results)}")
+                logger.error(f"feature_importance type: {type(feature_importance)}")
+                raise
+            
+            if save_model:
+                model_path = model_directory / "model.joblib"
+                joblib.dump(trained_model, model_path)
+                
+                metadata_path = model_directory / "metadata.json"
+                with open(metadata_path, 'w', encoding='utf-8') as f:
+                    json.dump(comprehensive_metadata, f, indent=2, ensure_ascii=False, default=str)
+                
+                # Save feature importance
+                feature_importance_path = model_directory / "feature_importance.csv"
+                # Convert dict to DataFrame with proper structure
+                feature_importance_df = pd.DataFrame([
+                    {'feature': feature, 'importance': importance} 
+                    for feature, importance in feature_importance.items()
+                ])
+                feature_importance_df.to_csv(feature_importance_path, index=False)
+                
+                logger.info(f"Model saved to: {model_path}")
+                logger.info(f"Metadata saved to: {metadata_path}")
+                
+                # Generate HTML training report
+                try:
+                    html_report_path = self._generate_html_training_report(model_directory, comprehensive_metadata)
+                    if html_report_path:
+                        logger.info(f"HTML training report generated: {html_report_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to generate HTML training report: {e}")
+                
+                # Generate academic report (optional)
+                try:
+                    # Prepare training results for academic report
+                    academic_training_results = {
+                        'cv_scores': cv_results,
+                        'test_scores': cv_results.get('test_scores', {}),
+                        'train_scores': cv_results.get('train_scores', {}),
+                        'timing': cv_results.get('timing', {}),
+                        'task_type': final_task_type,
+                        'cv_folds': cv_folds
+                    }
+                    
+                    # Calculate model_score from cv_results
+                    model_score = 0
+                    test_scores = cv_results.get('test_scores', {})
+                    if test_scores:
+                        if final_task_type == 'classification':
+                            # Try to get F1 or accuracy for classification
+                            if 'F1' in test_scores:
+                                model_score = test_scores['F1'].get('mean', 0)
+                            elif 'accuracy' in test_scores:
+                                model_score = test_scores['accuracy'].get('mean', 0)
+                        else:  # regression
+                            # Try to get R2 or MAE for regression
+                            if 'R2' in test_scores:
+                                model_score = test_scores['R2'].get('mean', 0)
+                            elif 'MAE' in test_scores:
+                                model_score = test_scores['MAE'].get('mean', 0)
+                    
+                    academic_training_results['model_score'] = model_score
+                    
+                    # Generate academic report
+                    academic_report_path = self.academic_report_generator.generate_academic_report(model_directory)
+                    if academic_report_path:
+                        logger.info(f"Academic report generated: {academic_report_path}")
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to generate academic report: {e}")
+                
+                logger.info(f"Model and reports saved to directory: {model_directory}")
+            
+            # Generate performance summary
+            training_time = (datetime.now() - start_time).total_seconds()
+            performance_summary = self._generate_performance_summary(
+                cv_results, final_task_type, scoring_metric
+            )
+            
+            # Prepare results
+            results = {
+                'model_id': model_id,
+                'model_directory': str(model_directory),
+                'task_type': final_task_type,
+                'model_params': final_params,
+                'feature_importance': [
+                    {'feature': feature, 'importance': importance} 
+                    for feature, importance in feature_importance.items()
+                ],
+                'cross_validation_results': cv_results,
+                'optimization_results': optimization_results,
+                'training_time_seconds': training_time,
+                'performance_summary': performance_summary,
+                'validation_results': validation_results,
+                'preprocessing_applied': preprocessing_applied,
+                # 'metadata': comprehensive_metadata
+            }
+            
+            logger.info(f"📊 Performance Summary: {performance_summary}")
+            logger.info(f"ASYNC training completed successfully in {training_time:.2f} seconds")
+            return results
+            
+        except Exception as e:
+            logger.error(f"ASYNC training failed: {str(e)}")
             raise
     
     def train_xgboost_classification(

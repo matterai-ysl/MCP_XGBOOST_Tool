@@ -1,0 +1,22 @@
+{
+  "task_id": "6d21892a-6a00-4d4d-bf8d-1021bfc224cd",
+  "user_id": "test_user",
+  "task_type": "regression",
+  "params": {
+    "data_source": "test_integration_data.csv",
+    "target_column": "target",
+    "task_type": "regression",
+    "optimize_hyperparameters": true,
+    "n_trials": 10,
+    "cv_folds": 3,
+    "scoring_metric": "neg_mean_absolute_error",
+    "save_model": false
+  },
+  "status": "failed",
+  "created_at": "2025-09-05T02:04:17.431316",
+  "started_at": "2025-09-05T02:04:17.431572",
+  "completed_at": "2025-09-05T02:04:18.249015",
+  "progress": 0.0,
+  "error_message": "DataValidator.validate_dataset() missing 1 required positional argument: 'task_type'",
+  "result": null
+}

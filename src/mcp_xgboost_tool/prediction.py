@@ -15,14 +15,14 @@ from datetime import datetime
 import uuid
 import zipfile
 import os
-
+from .config import BASE_URL,get_download_url,get_static_url
 from .model_manager import ModelManager
 from .data_utils import DataProcessor
 from .data_preprocessing import DataPreprocessor
 from .academic_report_generator import AcademicReportGenerator
 
 logger = logging.getLogger(__name__)
-base_url = "http://127.0.0.1:8080"
+
 class PredictionEngine:
     """
     Handles model predictions for various input formats.
@@ -230,11 +230,11 @@ class PredictionEngine:
                     html_report_path = self._generate_prediction_report(results, df_original, prediction_folder, model_info)
                     # Calculate relative path for HTML report
                     try:
-                        html_relative_path = Path(html_report_path).relative_to(self.model_manager.models_dir)
-                        results['predicttion_report_summary'] = f"result only show the first 10 predictions, You can find the html prediction report summary in {base_url}/static/{html_relative_path.relative_to(self.model_manager.models_dir.parent).as_posix()}"
+                        html_relative_path = get_static_url(html_report_path) # type: ignore
+                        results['predicttion_report_summary_html_path'] = f"result only show the first 10 predictions, You can find the html prediction report summary in {html_relative_path}"
                     except ValueError:
                         # Fallback if relative path calculation fails
-                        results['predicttion_report_summary'] = f"You can find the html prediction report summary in {base_url}/static/{Path(html_report_path).name}"
+                        results['predicttion_report_summary_html_path'] = f"You can find the html prediction report summary in {get_static_url(html_report_path)}"
                     
                     # Generate markdown experiment report and create archive (only if prediction_folder exists)
                     if prediction_folder:
@@ -245,22 +245,24 @@ class PredictionEngine:
                         if prediction_archive_path:
                             # Use the archive path instead of folder path
                             try:
-                                archive_relative_path = Path(prediction_archive_path).relative_to(self.model_manager.models_dir.parent).as_posix()
-                                results['prediction_details'] = f"""All detailed prediction data are saved in {base_url}/download/file/{archive_relative_path},
+                                archive_relative_path = get_download_url(prediction_archive_path) # type: ignore
+                                results['prediction_details'] = f"""All detailed prediction data are saved in {archive_relative_path},
                             which can be downloaded by users for reproducibility and academic research reference.  """
                             except ValueError:
                                 # Fallback if relative path calculation fails
-                                results['prediction_details'] = f"""All detailed prediction data are saved in {base_url}/download/file/{Path(prediction_archive_path).name},
+                                archive_relative_path = get_download_url(prediction_archive_path) # type: ignore
+                                results['prediction_details'] = f"""All detailed prediction data are saved in {archive_relative_path},
                             which can be downloaded by users for reproducibility and academic research reference.  """
                         else:
                             # Fallback to folder path if archive creation fails
                             try:
-                                folder_relative_path = Path(prediction_folder).relative_to(Path.cwd())
-                                results['prediction_details'] = f"""All detailed prediction data are saved in {base_url}/download/file/{folder_relative_path.as_posix()},
+                                folder_relative_path = get_download_url(prediction_folder) # type: ignore
+                                results['prediction_details'] = f"""All detailed prediction data are saved in {folder_relative_path},
                             which can be downloaded by users for reproducibility and academic research reference.  """
                             except ValueError:
-                                results['prediction_details'] = f"""All detailed prediction data are saved in {base_url}/download/file/{Path(prediction_folder).name},
-                            which can be downloaded by users for reproducibility and academic research reference.  """
+                                folder_relative_path = get_download_url(prediction_folder) # type: ignore
+                                results['prediction_details'] = f"""All detailed prediction data are saved in {folder_relative_path},
+                            which can be downloaded by users for reproducibility and academic research reference.  """ # type: ignore
 
                         logger.info(f"Generated Markdown experiment report: {markdown_report_path}")
                     
@@ -605,11 +607,12 @@ class PredictionEngine:
                     print("*"*100)
                     print("html_relative_path",html_relative_path)
                     print("*"*100)
-
-                    results['predicttion_report_summary'] = f"You can find the html prediction report summary in {base_url}/static/{html_relative_path.as_posix()}"
+                    html_relative_path = get_static_url(html_report_path) # type: ignore
+                    results['predicttion_report_summary_html_path'] = f"You can find the html prediction report summary in {html_relative_path}"
                 except ValueError:
                     # Fallback if relative path calculation fails
-                    results['predicttion_report_summary'] = f"You can find the html prediction report summary in {base_url}/static/{Path(html_report_path).name}"
+                    html_relative_path = get_static_url(html_report_path) # type: ignore
+                    results['predicttion_report_summary_html_path'] = f"You can find the html prediction report summary in {get_static_url(html_report_path)}"
                 
                 # Generate markdown experiment report (only if prediction_folder exists)
                 if prediction_folder:
@@ -621,18 +624,19 @@ class PredictionEngine:
                     prediction_archive_path = self._create_prediction_archive(prediction_folder, prediction_id)
                     if prediction_archive_path:
                         # Use the archive path instead of folder path
-                        archive_relative_path = Path(prediction_archive_path).relative_to(self.model_manager.models_dir.parent)
-                        results['prediction_details'] = f"""All detailed prediction data are saved in {base_url}/download/file/{archive_relative_path.as_posix()},
+                        archive_relative_path = get_download_url(prediction_archive_path) # type: ignore
+                        results['prediction_details'] = f"""All detailed prediction data are saved in {archive_relative_path},
                         which can be downloaded by users for reproducibility and academic research reference.  """
 
                     else:
                         # Fallback to folder path if archive creation fails
                         try:
-                            folder_relative_path = Path(prediction_folder).relative_to(Path.cwd())
-                            results['prediction_details'] = f"""All detailed prediction data are saved in {base_url}/download/file/{folder_relative_path.as_posix()},
+                            folder_relative_path = get_download_url(prediction_folder) # type: ignore
+                            results['prediction_details'] = f"""All detailed prediction data are saved in {folder_relative_path},
                         which can be downloaded by users for reproducibility and academic research reference.  """
                         except ValueError:
-                            results['prediction_details'] = f"""All detailed prediction data are saved in {base_url}/download/file/{Path(prediction_folder).name},
+                            folder_relative_path = get_download_url(prediction_folder) # type: ignore
+                            results['prediction_details'] = f"""All detailed prediction data are saved in {get_download_url(folder_relative_path)},
                         which can be downloaded by users for reproducibility and academic research reference.  """
 
                     logger.info(f"Generated Markdown experiment report: {markdown_report_path}")

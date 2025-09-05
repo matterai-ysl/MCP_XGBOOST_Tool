@@ -1,0 +1,398 @@
+{
+  "best_params": {
+    "n_estimators": 130,
+    "max_depth": 9,
+    "learning_rate": 0.0961428336109234,
+    "subsample": 0.6480614600857643,
+    "colsample_bytree": 0.7466944240592454,
+    "colsample_bylevel": 0.6862216402863762,
+    "reg_alpha": 1.5356143941184628e-08,
+    "reg_lambda": 5.289671088186269,
+    "min_child_weight": 8,
+    "gamma": 0.0005363803239619892
+  },
+  "best_score": -0.5351433562116643,
+  "best_trial_number": 14,
+  "n_trials": 15,
+  "n_completed_trials": 15,
+  "task_type": "regression",
+  "sampler_type": "TPE",
+  "optimization_history": [
+    {
+      "trial_number": 0,
+      "value": -0.6618941077980555,
+      "params": {
+        "n_estimators": 90,
+        "max_depth": 10,
+        "learning_rate": 0.1205712628744377,
+        "subsample": 0.8394633936788146,
+        "colsample_bytree": 0.6624074561769746,
+        "colsample_bylevel": 0.662397808134481,
+        "reg_alpha": 3.3323645788192616e-08,
+        "reg_lambda": 0.6245760287469887,
+        "min_child_weight": 7,
+        "gamma": 0.02358594058414266
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.054472",
+      "duration": 0.053431
+    },
+    {
+      "trial_number": 1,
+      "value": -0.7199690764975968,
+      "params": {
+        "n_estimators": 50,
+        "max_depth": 10,
+        "learning_rate": 0.1696753360719655,
+        "subsample": 0.6849356442713105,
+        "colsample_bytree": 0.6727299868828402,
+        "colsample_bylevel": 0.6733618039413735,
+        "reg_alpha": 5.472429642032189e-06,
+        "reg_lambda": 0.00052821153945323,
+        "min_child_weight": 5,
+        "gamma": 4.17890272377219e-06
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.108251",
+      "duration": 0.040419
+    },
+    {
+      "trial_number": 2,
+      "value": -0.7826121850027856,
+      "params": {
+        "n_estimators": 110,
+        "max_depth": 2,
+        "learning_rate": 0.027010527749605478,
+        "subsample": 0.7465447373174766,
+        "colsample_bytree": 0.7824279936868144,
+        "colsample_bylevel": 0.9140703845572055,
+        "reg_alpha": 6.267062696005991e-07,
+        "reg_lambda": 0.00042472707398058225,
+        "min_child_weight": 6,
+        "gamma": 2.6185068507773707e-08
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.148972",
+      "duration": 0.031014
+    },
+    {
+      "trial_number": 3,
+      "value": -1.1553312578538004,
+      "params": {
+        "n_estimators": 110,
+        "max_depth": 2,
+        "learning_rate": 0.012476394272569451,
+        "subsample": 0.9795542149013333,
+        "colsample_bytree": 0.9862528132298237,
+        "colsample_bylevel": 0.9233589392465844,
+        "reg_alpha": 5.514725787121931e-06,
+        "reg_lambda": 7.569183361880229e-08,
+        "min_child_weight": 7,
+        "gamma": 9.148975058772307e-05
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.180316",
+      "duration": 0.033762
+    },
+    {
+      "trial_number": 4,
+      "value": -1.368032406290665,
+      "params": {
+        "n_estimators": 60,
+        "max_depth": 5,
+        "learning_rate": 0.011240768803005551,
+        "subsample": 0.9637281608315128,
+        "colsample_bytree": 0.7035119926400067,
+        "colsample_bylevel": 0.8650089137415928,
+        "reg_alpha": 6.388511557344611e-06,
+        "reg_lambda": 0.0004793052550782129,
+        "min_child_weight": 6,
+        "gamma": 4.609885087947832e-07
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.214407",
+      "duration": 0.045421
+    },
+    {
+      "trial_number": 5,
+      "value": -0.8123335525809855,
+      "params": {
+        "n_estimators": 150,
+        "max_depth": 8,
+        "learning_rate": 0.2442046084491143,
+        "subsample": 0.9579309401710595,
+        "colsample_bytree": 0.8391599915244341,
+        "colsample_bylevel": 0.9687496940092467,
+        "reg_alpha": 6.257956190096665e-08,
+        "reg_lambda": 5.805581976088804e-07,
+        "min_child_weight": 1,
+        "gamma": 8.471746987003668e-06
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.260172",
+      "duration": 0.09948
+    },
+    {
+      "trial_number": 6,
+      "value": -0.703692301485433,
+      "params": {
+        "n_estimators": 90,
+        "max_depth": 3,
+        "learning_rate": 0.16755052359850306,
+        "subsample": 0.7427013306774357,
+        "colsample_bytree": 0.7123738038749523,
+        "colsample_bylevel": 0.8170784332632994,
+        "reg_alpha": 1.8548894229694903e-07,
+        "reg_lambda": 0.16587190283399628,
+        "min_child_weight": 1,
+        "gamma": 7.6204817861585425
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.360035",
+      "duration": 0.027749
+    },
+    {
+      "trial_number": 7,
+      "value": -1.1662240639000652,
+      "params": {
+        "n_estimators": 130,
+        "max_depth": 2,
+        "learning_rate": 0.010189592979395137,
+        "subsample": 0.9261845713819337,
+        "colsample_bytree": 0.8827429375390469,
+        "colsample_bylevel": 0.8916028672163949,
+        "reg_alpha": 0.08738424135626989,
+        "reg_lambda": 4.638759594322625e-08,
+        "min_child_weight": 4,
+        "gamma": 1.1036250149900698e-07
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.388094",
+      "duration": 0.042296
+    },
+    {
+      "trial_number": 8,
+      "value": -0.6343842956506417,
+      "params": {
+        "n_estimators": 140,
+        "max_depth": 7,
+        "learning_rate": 0.030816017044468066,
+        "subsample": 0.6254233401144095,
+        "colsample_bytree": 0.7243929286862648,
+        "colsample_bylevel": 0.7300733288106988,
+        "reg_alpha": 0.03685153691188181,
+        "reg_lambda": 0.005470376807480385,
+        "min_child_weight": 9,
+        "gamma": 0.0001778010520878397
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.430719",
+      "duration": 0.06767
+    },
+    {
+      "trial_number": 9,
+      "value": -0.7112759898905785,
+      "params": {
+        "n_estimators": 60,
+        "max_depth": 8,
+        "learning_rate": 0.13297554090738672,
+        "subsample": 0.8245108790277985,
+        "colsample_bytree": 0.9083868719818244,
+        "colsample_bylevel": 0.7975182385457563,
+        "reg_alpha": 0.0005065186776865479,
+        "reg_lambda": 7.04480806377519e-05,
+        "min_child_weight": 1,
+        "gamma": 9.354548757337708e-08
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.498811",
+      "duration": 0.129032
+    },
+    {
+      "trial_number": 10,
+      "value": -0.7130965460106499,
+      "params": {
+        "n_estimators": 150,
+        "max_depth": 6,
+        "learning_rate": 0.05428245885836724,
+        "subsample": 0.6071847502459278,
+        "colsample_bytree": 0.6097788168401318,
+        "colsample_bylevel": 0.737547017645206,
+        "reg_alpha": 4.464513515045264,
+        "reg_lambda": 0.01620963590242718,
+        "min_child_weight": 10,
+        "gamma": 0.006214620733434314
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.628192",
+      "duration": 0.066069
+    },
+    {
+      "trial_number": 11,
+      "value": -0.6936192445981424,
+      "params": {
+        "n_estimators": 90,
+        "max_depth": 10,
+        "learning_rate": 0.05757204854983819,
+        "subsample": 0.8586859301207159,
+        "colsample_bytree": 0.7560581562095761,
+        "colsample_bylevel": 0.6159320342124333,
+        "reg_alpha": 0.0029151336209232927,
+        "reg_lambda": 8.99984978558897,
+        "min_child_weight": 9,
+        "gamma": 0.032972661587959216
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.695617",
+      "duration": 0.059158
+    },
+    {
+      "trial_number": 12,
+      "value": -0.7564953677913517,
+      "params": {
+        "n_estimators": 130,
+        "max_depth": 8,
+        "learning_rate": 0.05881299754962944,
+        "subsample": 0.8763648583333697,
+        "colsample_bytree": 0.6196659073234785,
+        "colsample_bylevel": 0.7120012816828658,
+        "reg_alpha": 0.031947244723521395,
+        "reg_lambda": 0.5007156705967981,
+        "min_child_weight": 8,
+        "gamma": 0.010120698664942694
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.755143",
+      "duration": 0.068521
+    },
+    {
+      "trial_number": 13,
+      "value": -1.0149015580004628,
+      "params": {
+        "n_estimators": 80,
+        "max_depth": 6,
+        "learning_rate": 0.027455280545151443,
+        "subsample": 0.7691605335785585,
+        "colsample_bytree": 0.6697548906901242,
+        "colsample_bylevel": 0.6125215025350458,
+        "reg_alpha": 4.723961793539163,
+        "reg_lambda": 0.01859292743827734,
+        "min_child_weight": 10,
+        "gamma": 0.6298769554137202
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.823967",
+      "duration": 0.037078
+    },
+    {
+      "trial_number": 14,
+      "value": -0.5351433562116643,
+      "params": {
+        "n_estimators": 130,
+        "max_depth": 9,
+        "learning_rate": 0.0961428336109234,
+        "subsample": 0.6480614600857643,
+        "colsample_bytree": 0.7466944240592454,
+        "colsample_bylevel": 0.6862216402863762,
+        "reg_alpha": 1.5356143941184628e-08,
+        "reg_lambda": 5.289671088186269,
+        "min_child_weight": 8,
+        "gamma": 0.0005363803239619892
+      },
+      "state": "COMPLETE",
+      "datetime": "2025-09-05T10:00:24.861397",
+      "duration": 0.060483
+    }
+  ],
+  "best_cv_scores": [
+    -0.5222099740421802,
+    -0.47302569417471413,
+    -0.7024504774547903,
+    -0.504593721087549,
+    -0.47343691429908785
+  ],
+  "best_cv_std": 0.08574207171472766,
+  "trials_dataframe": "    number  ...     state\n0        0  ...  COMPLETE\n1        1  ...  COMPLETE\n2        2  ...  COMPLETE\n3        3  ...  COMPLETE\n4        4  ...  COMPLETE\n5        5  ...  COMPLETE\n6        6  ...  COMPLETE\n7        7  ...  COMPLETE\n8        8  ...  COMPLETE\n9        9  ...  COMPLETE\n10      10  ...  COMPLETE\n11      11  ...  COMPLETE\n12      12  ...  COMPLETE\n13      13  ...  COMPLETE\n14      14  ...  COMPLETE\n\n[15 rows x 19 columns]",
+  "parameter_ranges": {
+    "n_estimators": {
+      "range": [
+        50,
+        150
+      ],
+      "step": 10,
+      "description": "Number of boosting rounds (trees) in the ensemble"
+    },
+    "max_depth": {
+      "range": [
+        1,
+        10
+      ],
+      "step": 1,
+      "description": "Maximum depth of each tree in the ensemble"
+    },
+    "learning_rate": {
+      "range": [
+        0.01,
+        0.3
+      ],
+      "scale": "log",
+      "description": "Step size shrinkage to prevent overfitting"
+    },
+    "subsample": {
+      "range": [
+        0.6,
+        1.0
+      ],
+      "scale": "linear",
+      "description": "Fraction of samples used for training each tree"
+    },
+    "colsample_bytree": {
+      "range": [
+        0.6,
+        1.0
+      ],
+      "scale": "linear",
+      "description": "Fraction of features used for training each tree"
+    },
+    "colsample_bylevel": {
+      "range": [
+        0.6,
+        1.0
+      ],
+      "scale": "linear",
+      "description": "Fraction of features used for each level in each tree"
+    },
+    "reg_alpha": {
+      "range": [
+        1e-08,
+        10.0
+      ],
+      "scale": "log",
+      "description": "L1 regularization term on weights (Lasso regularization)"
+    },
+    "reg_lambda": {
+      "range": [
+        1e-08,
+        10.0
+      ],
+      "scale": "log",
+      "description": "L2 regularization term on weights (Ridge regularization)"
+    },
+    "min_child_weight": {
+      "range": [
+        1,
+        10
+      ],
+      "step": 1,
+      "description": "Minimum sum of instance weight needed in a child node"
+    },
+    "gamma": {
+      "range": [
+        1e-08,
+        10.0
+      ],
+      "scale": "log",
+      "description": "Minimum loss reduction required to make a split"
+    }
+  }
+}

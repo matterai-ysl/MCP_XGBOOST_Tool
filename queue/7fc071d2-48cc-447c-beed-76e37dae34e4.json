@@ -1,0 +1,21 @@
+{
+  "task_id": "7fc071d2-48cc-447c-beed-76e37dae34e4",
+  "user_id": "debug_user",
+  "task_type": "regression",
+  "params": {
+    "data_source": "debug_test.csv",
+    "target_column": "target",
+    "task_type": "regression",
+    "optimize_hyperparameters": false,
+    "save_model": false,
+    "validate_data": false,
+    "apply_preprocessing": false
+  },
+  "status": "failed",
+  "created_at": "2025-09-05T08:57:17.946064",
+  "started_at": "2025-09-05T08:57:17.946259",
+  "completed_at": "2025-09-05T08:57:19.465161",
+  "progress": 0.0,
+  "error_message": "unhashable type: 'list'",
+  "result": null
+}

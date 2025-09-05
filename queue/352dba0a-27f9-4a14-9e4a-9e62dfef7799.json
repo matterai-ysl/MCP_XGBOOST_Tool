@@ -1,0 +1,23 @@
+{
+  "task_id": "352dba0a-27f9-4a14-9e4a-9e62dfef7799",
+  "user_id": "test_user",
+  "task_type": "regression",
+  "params": {
+    "data_source": "test_integration_data.csv",
+    "target_column": "target",
+    "task_type": "regression",
+    "optimize_hyperparameters": true,
+    "n_trials": 10,
+    "cv_folds": 3,
+    "scoring_metric": "neg_mean_absolute_error",
+    "save_model": false,
+    "validate_data": false
+  },
+  "status": "failed",
+  "created_at": "2025-09-05T02:04:39.672659",
+  "started_at": "2025-09-05T02:04:39.672906",
+  "completed_at": "2025-09-05T02:04:40.445376",
+  "progress": 0.0,
+  "error_message": "'DataPreprocessor' object has no attribute 'preprocess_features'",
+  "result": null
+}

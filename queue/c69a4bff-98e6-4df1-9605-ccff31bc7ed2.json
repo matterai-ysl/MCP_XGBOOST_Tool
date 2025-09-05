@@ -1,0 +1,28 @@
+{
+  "task_id": "c69a4bff-98e6-4df1-9605-ccff31bc7ed2",
+  "user_id": null,
+  "task_type": "regression",
+  "params": {
+    "data_source": "./H-AF.xls",
+    "target_column": "H_AF",
+    "model_id": "191cdf19-cb0d-4608-be36-5b4c36606695",
+    "optimize_hyperparameters": true,
+    "n_trials": 50,
+    "cv_folds": 5,
+    "scoring_metric": "neg_mean_absolute_error",
+    "validate_data": true,
+    "save_model": true,
+    "apply_preprocessing": true,
+    "scaling_method": "standard",
+    "task_type": "regression",
+    "enable_gpu": true,
+    "device": "auto"
+  },
+  "status": "failed",
+  "created_at": "2025-09-05T09:10:15.808922",
+  "started_at": "2025-09-05T09:10:15.812221",
+  "completed_at": "2025-09-05T09:10:15.848419",
+  "progress": 0.0,
+  "error_message": "'DataPreprocessor' object has no attribute 'preprocess_features'",
+  "result": null
+}

@@ -8,6 +8,8 @@ for XGBoost models, supporting TPE and GP algorithms.
 
 import logging
 import os
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, List, Optional, Union, Callable, Tuple
 import numpy as np
 import pandas as pd
@@ -258,7 +260,7 @@ class HyperparameterOptimizer:
         # Create objective function
         objective = self._create_objective_function(X, y, task_type, scoring_metric)
         
-        # Run optimization with progress bar
+        # Run optimization with progress bar (synchronous)
         self.study.optimize(
             objective, 
             n_trials=self.n_trials, 
@@ -294,6 +296,44 @@ class HyperparameterOptimizer:
         logger.info(f"Best score: {self.best_score}")
         
         return self.best_params, self.best_score, trials_df
+
+    async def optimize_async(self, 
+                           X: Union[np.ndarray, pd.DataFrame], 
+                           y: np.ndarray,
+                           task_type: Optional[str] = None,
+                           scoring_metric: Optional[str] = None,
+                           save_dir: Optional[str] = None) -> Tuple[Dict[str, Any], float, Optional[pd.DataFrame]]:
+        """
+        Asynchronous version of hyperparameter optimization using Optuna.
+        
+        This method runs the optimization in a separate thread pool to prevent
+        blocking the event loop during long-running optimization tasks.
+        
+        Args:
+            X: Feature matrix
+            y: Target variable
+            task_type: 'classification' or 'regression' (auto-detected if None)
+            scoring_metric: Scoring metric for evaluation
+            save_dir: Directory to save optimization history CSV
+            
+        Returns:
+            Tuple of (best_params, best_score, trials_dataframe)
+        """
+        logger.info("Starting asynchronous hyperparameter optimization...")
+        
+        # Run the synchronous optimization method in a thread pool
+        loop = asyncio.get_event_loop()
+        
+        # Use a dedicated thread pool for CPU-intensive optimization
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="optuna-") as executor:
+            result = await loop.run_in_executor(
+                executor,
+                self.optimize,
+                X, y, task_type, scoring_metric, save_dir
+            )
+        
+        logger.info("Asynchronous hyperparameter optimization completed")
+        return result
 
     def get_optimization_results(self) -> Dict[str, Any]:
         """Get comprehensive optimization results."""

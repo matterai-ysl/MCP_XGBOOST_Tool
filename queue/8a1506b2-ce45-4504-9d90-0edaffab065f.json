@@ -1,0 +1,28 @@
+{
+  "task_id": "8a1506b2-ce45-4504-9d90-0edaffab065f",
+  "user_id": null,
+  "task_type": "regression",
+  "params": {
+    "data_source": "./H-AF.xls",
+    "target_column": "H-AF",
+    "model_id": "21294b42-0518-480d-9c44-b67048ae66dd",
+    "optimize_hyperparameters": true,
+    "n_trials": 50,
+    "cv_folds": 5,
+    "scoring_metric": "neg_mean_absolute_error",
+    "validate_data": true,
+    "save_model": true,
+    "apply_preprocessing": true,
+    "scaling_method": "standard",
+    "task_type": "regression",
+    "enable_gpu": true,
+    "device": "auto"
+  },
+  "status": "queued",
+  "created_at": "2025-09-05T01:58:02.788580",
+  "started_at": null,
+  "completed_at": null,
+  "progress": 0.0,
+  "error_message": null,
+  "result": null
+}

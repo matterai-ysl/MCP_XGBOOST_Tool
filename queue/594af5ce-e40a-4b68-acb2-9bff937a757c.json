@@ -1,0 +1,22 @@
+{
+  "task_id": "594af5ce-e40a-4b68-acb2-9bff937a757c",
+  "user_id": "preprocessing_test_user",
+  "task_type": "classification",
+  "params": {
+    "data_source": "test_preprocessing.csv",
+    "target_column": "target",
+    "task_type": "classification",
+    "optimize_hyperparameters": false,
+    "save_model": true,
+    "validate_data": false,
+    "apply_preprocessing": true,
+    "scaling_method": "standard"
+  },
+  "status": "failed",
+  "created_at": "2025-09-05T09:14:49.804103",
+  "started_at": "2025-09-05T09:14:49.804351",
+  "completed_at": "2025-09-05T09:14:50.538983",
+  "progress": 0.0,
+  "error_message": "XGBoost model training failed: could not convert string to float: 'Medium'\nSuggestions: Check XGBoost documentation for the specific error; Verify data format and preprocessing steps; Try with default parameters first",
+  "result": null
+}

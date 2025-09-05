@@ -1,0 +1,22 @@
+{
+  "task_id": "ff04188b-467a-478d-816b-6449a09d4a90",
+  "user_id": "test_user",
+  "task_type": "classification",
+  "params": {
+    "data_source": "test_academic.csv",
+    "target_column": "target",
+    "task_type": "classification",
+    "optimize_hyperparameters": false,
+    "save_model": true,
+    "validate_data": false,
+    "apply_preprocessing": true,
+    "cv_folds": 3
+  },
+  "status": "failed",
+  "created_at": "2025-09-05T10:09:29.131712",
+  "started_at": "2025-09-05T10:09:29.132123",
+  "completed_at": "2025-09-05T10:09:30.025755",
+  "progress": 0.0,
+  "error_message": "File not found: test_academic.csv",
+  "result": null
+}

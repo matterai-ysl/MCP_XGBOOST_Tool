@@ -1,0 +1,24 @@
+{
+  "task_id": "0f7b143c-1200-4436-9210-eb59f398729d",
+  "user_id": "test_detailed_user",
+  "task_type": "regression",
+  "params": {
+    "data_source": "test_detailed_results.csv",
+    "target_column": "target",
+    "task_type": "regression",
+    "optimize_hyperparameters": true,
+    "n_trials": 15,
+    "cv_folds": 5,
+    "scoring_metric": "neg_mean_absolute_error",
+    "save_model": true,
+    "validate_data": false,
+    "apply_preprocessing": false
+  },
+  "status": "failed",
+  "created_at": "2025-09-05T08:58:38.535820",
+  "started_at": "2025-09-05T08:58:38.536103",
+  "completed_at": "2025-09-05T08:58:41.769081",
+  "progress": 0.0,
+  "error_message": "If using all scalar values, you must pass an index",
+  "result": null
+}

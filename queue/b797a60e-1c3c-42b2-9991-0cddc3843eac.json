@@ -1,0 +1,92 @@
+{
+  "task_id": "b797a60e-1c3c-42b2-9991-0cddc3843eac",
+  "user_id": null,
+  "task_type": "regression",
+  "params": {
+    "data_source": "./TS-AF.xls",
+    "target_column": "TS-AF",
+    "model_id": "5e1a066a-1aa9-4648-b34a-dcdbf0dd227c",
+    "optimize_hyperparameters": true,
+    "n_trials": 50,
+    "cv_folds": 5,
+    "scoring_metric": "neg_mean_absolute_error",
+    "validate_data": true,
+    "save_model": true,
+    "apply_preprocessing": true,
+    "scaling_method": "standard",
+    "task_type": "regression",
+    "enable_gpu": true,
+    "device": "auto"
+  },
+  "status": "completed",
+  "created_at": "2025-09-05T21:15:02.253575",
+  "started_at": "2025-09-05T21:15:02.255317",
+  "completed_at": "2025-09-05T21:15:06.930320",
+  "progress": 100.0,
+  "error_message": null,
+  "result": {
+    "model_id": "5e1a066a-1aa9-4648-b34a-dcdbf0dd227c",
+    "task_type": "regression",
+    "training_time_seconds": 4.672342,
+    "data_shape": {
+      "n_samples": 53,
+      "n_features": 4
+    },
+    "feature_names": [
+      "SiO2",
+      "CeO2",
+      "Lignin",
+      "2-VN"
+    ],
+    "target_names": "TS-AF",
+    "best_hyperparameters": {
+      "n_estimators": 140,
+      "max_depth": 8,
+      "learning_rate": 0.05224427292497112,
+      "subsample": 0.7770062988994653,
+      "colsample_bytree": 0.7975834899659389,
+      "colsample_bylevel": 0.6957358462320232,
+      "reg_alpha": 0.0016370237686921822,
+      "reg_lambda": 0.036880682382636656,
+      "min_child_weight": 8,
+      "gamma": 9.801959340802334e-06
+    },
+    "feature_importance": {
+      "SiO2": {
+        "weight": 149.0,
+        "gain": 2.1431257724761963,
+        "cover": 30.70469856262207,
+        "sklearn_gain": 0.6709930300712585,
+        "permutation_mean": 1.326018893658696,
+        "permutation_std": 0.1447889805526069
+      },
+      "CeO2": {
+        "weight": 100.0,
+        "gain": 0.1737525761127472,
+        "cover": 28.0,
+        "sklearn_gain": 0.05440033599734306,
+        "permutation_mean": 0.014877462912987926,
+        "permutation_std": 0.0054564802365413565
+      },
+      "Lignin": {
+        "weight": 110.0,
+        "gain": 0.6509820818901062,
+        "cover": 31.190908432006836,
+        "sklearn_gain": 0.2038165181875229,
+        "permutation_mean": 0.17319023108496653,
+        "permutation_std": 0.028963027012381806
+      },
+      "2-VN": {
+        "weight": 78.0,
+        "gain": 0.22610102593898773,
+        "cover": 29.69230842590332,
+        "sklearn_gain": 0.07079015672206879,
+        "permutation_mean": 0.012287120894209691,
+        "permutation_std": 0.0025637425043387434
+      }
+    },
+    "performance_summary": "Regression model achieved R² of 0.918±0.043 with MAE of 0.216 (5-fold CV)",
+    "trained_report_summary_html_path": "You can find the html trained report summary in http://localhost:8100/static/5e1a066a-1aa9-4648-b34a-dcdbf0dd227c/training_report.html",
+    "trained_details": "All detailed training data are saved in http://localhost:8100/download/file/archives/5e1a066a-1aa9-4648-b34a-dcdbf0dd227c_20250905_211506.zip,\n                which can be downloaded by users for reproducibility and academic research reference.  "
+  }
+}

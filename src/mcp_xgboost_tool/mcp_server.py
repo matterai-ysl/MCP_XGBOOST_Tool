@@ -502,7 +502,7 @@ async def analyze_xgboost_global_feature_importance(
     Args:
         model_id: Unique identifier for the trained model
         data_source: Path to data file for permutation analysis (if None, uses saved training data)
-        analysis_types: Types of analysis to perform ["basic", "permutation", "shap"], default is ["basic"]
+        analysis_types: Types of analysis to perform ["basic", "permutation", "shap"], default is ["basic", "shap"]
         generate_plots: Whether to generate visualization plots
         generate_report: Whether to generate analysis report
     Returns:
@@ -887,8 +887,8 @@ async def analyze_xgboost_global_feature_importance(
                     logger.info("✓ SHAP importance scores extracted")
             
             # 保留报告链接（如果存在）
-            if 'report_summary' in results:
-                simplified_results['report_summary'] = results['report_summary']
+            if 'report_summary_html_path' in results:
+                simplified_results['report_summary_html_path'] = results['report_summary_html_path']
                 
             # 保留归档路径（如果存在）
             # if 'archive_path' in results:
@@ -1448,60 +1448,6 @@ def _create_analysis_archive(output_dir: Path, analysis_type: str, task_id: str,
         return None # type: ignore
 
 
-@mcp.tool()
-async def get_task_status(task_id: str) -> Dict[str, Any]:
-    """
-    Get the status of a training task.
-    
-    Args:
-        task_id: ID of the task to check
-        
-    Returns:
-        Task status information
-    """
-    try:
-        queue_manager = get_queue_manager()
-        task_status = await queue_manager.get_task_status(task_id)
-        
-        if not task_status:
-            return {"status": "error", "message": f"Task {task_id} not found"}
-            
-        # Enhance the response with more details for completed tasks
-        if task_status and task_status["status"] == "completed" and task_status.get("result"):
-            result = task_status["result"]
-            
-            # Serialize the entire response to handle numpy arrays
-            response = {
-                "status": "success",
-                "task": serialize_for_json(task_status),
-                "training_summary": {
-                    "model_id": result.get("model_id"),
-                    "model_directory": result.get("model_directory"),
-                    "task_type": result.get("task_type"),
-                    "performance_summary": result.get("performance_summary"),
-                    "training_time_seconds": result.get("training_time_seconds"),
-                    "feature_count": len(result.get("feature_importance", [])),
-                    "optimization_applied": bool(result.get("optimization_results")),
-                    "preprocessing_applied": result.get("preprocessing_applied", False)
-                },
-                "detailed_results": {
-                    "feature_importance": serialize_for_json(result.get("feature_importance", [])),
-                    "cross_validation_results": serialize_for_json(result.get("cross_validation_results", {})),
-                    "optimization_results": serialize_for_json(result.get("optimization_results", {})),
-                    "model_params": serialize_for_json(result.get("model_params", {})),
-                    "metadata": serialize_for_json(result.get("metadata", {}))
-                }
-            }
-            return response
-        else:
-            return {
-                "status": "success", 
-                "task": task_status
-            }
-        
-    except Exception as e:
-        logger.error(f"Failed to get task status: {str(e)}")
-        return {"status": "error", "message": str(e)}
 
 @mcp.tool()
 async def list_training_tasks(user_id: Optional[str] = None) -> Dict[str, Any]:
@@ -1582,17 +1528,13 @@ async def cancel_training_task(task_id: str) -> Dict[str, Any]:
 @mcp.tool()
 async def get_training_results(task_id: str) -> Dict[str, Any]:
     """
-    Get detailed training results for a completed task.
-    
-    This tool provides comprehensive information about a completed training task,
-    including model performance, feature importance, cross-validation results,
-    hyperparameter optimization details, and model metadata.
+    Get training results and task status.
     
     Args:
-        task_id: ID of the completed training task
+        task_id: ID of the task to check
         
     Returns:
-        Detailed training results and analysis
+        Task status and training results (if completed)
     """
     try:
         queue_manager = get_queue_manager()
@@ -1601,56 +1543,23 @@ async def get_training_results(task_id: str) -> Dict[str, Any]:
         if not task_status:
             return {"status": "error", "message": f"Task {task_id} not found"}
             
-        if task_status["status"] != "completed":
+        # For completed tasks with results, return the complete task result directly
+        if task_status["status"] == "completed" and task_status.get("result"):
+            # Return the original result without re-packaging to avoid losing information
             return {
-                "status": "error", 
-                "message": f"Task is not completed yet. Current status: {task_status['status']}"
-            }
-            
-        if not task_status.get("result"):
-            return {"status": "error", "message": "No training results available for this task"}
-            
-        result = task_status["result"]
-        
-        # Format detailed training results
-        training_results = {
-            "status": "success",
-            "task_info": {
+                "status": "success",
+                "task_status": task_status["status"],
                 "task_id": task_id,
-                "completed_at": task_status["completed_at"],
-                "training_time_seconds": result.get("training_time_seconds", 0)
-            },
-            "model_info": {
-                "model_id": result.get("model_id"),
-                "model_directory": result.get("model_directory"),
-                "task_type": result.get("task_type"),
-                "performance_summary": result.get("performance_summary", "No summary available")
-            },
-            "training_details": {
-                "model_parameters": result.get("model_params", {}),
-                "preprocessing_applied": result.get("preprocessing_applied", False),
-                "feature_count": len(result.get("feature_importance", [])),
-                "cross_validation_folds": result.get("cross_validation_results", {}).get("cv_folds", "N/A")
-            },
-            "performance_metrics": result.get("cross_validation_results", {}),
-            "feature_importance": result.get("feature_importance", []),
-            "hyperparameter_optimization": result.get("optimization_results", {}),
-            "model_metadata": result.get("metadata", {})
-        }
-        
-        # Add optimization summary if available
-        opt_results = result.get("optimization_results", {})
-        if opt_results:
-            training_results["optimization_summary"] = {
-                "best_score": opt_results.get("best_score", "N/A"),
-                "best_params": opt_results.get("best_params", {}),
-                "n_trials": opt_results.get("n_trials", "N/A"),
-                "optimization_applied": True
+                "completed_at": task_status.get("completed_at"),
+                **serialize_for_json(task_status["result"])  # Unpack all result data directly
             }
         else:
-            training_results["optimization_summary"] = {"optimization_applied": False}
-            
-        return serialize_for_json(training_results)
+            # For non-completed tasks, return basic status info
+            return {
+                "status": "success", 
+                "task_status": task_status["status"],
+                "message": f"Task is {task_status['status']}" + (f" - {task_status.get('error', '')}" if task_status.get('error') else "")
+            }
         
     except Exception as e:
         logger.error(f"Failed to get training results: {str(e)}")

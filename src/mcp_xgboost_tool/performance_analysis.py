@@ -116,7 +116,7 @@ class PerformanceAnalyzer:
         X_test: np.ndarray,
         model_id: str,
         version: str = "1.0.0",
-        batch_sizes: List[int] = None,
+        batch_sizes: List[int] = None, # type: ignore
         iterations: int = 5
     ) -> List[PredictionPerformance]:
         """
@@ -325,7 +325,7 @@ class PerformanceAnalyzer:
         model_id: str,
         baseline_version: str,
         current_version: str,
-        metrics: List[str] = None,
+        metrics: List[str] = None, # type: ignore
         threshold: float = 0.05
     ) -> List[PerformanceRegression]:
         """

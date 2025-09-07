@@ -78,7 +78,7 @@ The codebase follows a modular architecture centered around XGBoost ML capabilit
 
 ## MCP Tools Available
 
-The server provides 14 core MCP tools:
+The server provides 13 core MCP tools:
 
 ### Training Tools (Queue-based)
 1. **`train_xgboost_regressor`** - Submit XGBoost regression training task to queue (returns task_id)
@@ -98,11 +98,10 @@ The server provides 14 core MCP tools:
 9. **`delete_model`** - Remove trained models and associated files
 
 ### Queue Management Tools
-10. **`get_task_status`** - Get status of a training task by task_id
-11. **`get_training_results`** - Get detailed training results for a completed task
-12. **`list_training_tasks`** - List all training tasks with their status
-13. **`get_queue_status`** - Get overall training queue status
-14. **`cancel_training_task`** - Cancel a training task by task_id
+10. **`get_training_results`** - Get training results and task status (unified tool)
+11. **`list_training_tasks`** - List all training tasks with their status
+12. **`get_queue_status`** - Get overall training queue status
+13. **`cancel_training_task`** - Cancel a training task by task_id
 
 ## File Structure
 
@@ -212,35 +211,32 @@ task_id = result["task_id"]
 model_id = result["model_id"]
 ```
 
-### 2. Monitor Progress
+### 2. Monitor Progress and Get Results
 ```python
-# Check task status
-status_result = await mcp_client.call_tool("get_task_status", {
+# Check task status and get results (unified tool)
+result = await mcp_client.call_tool("get_training_results", {
     "task_id": task_id
 })
 
-# Status can be: "queued", "running", "completed", "failed", "cancelled"
-print(f"Task status: {status_result['task']['status']}")
-```
+# For running/queued tasks
+if result['task_status'] in ['queued', 'running']:
+    print(f"Task status: {result['task_status']}")
 
-### 3. Access Results
-```python
-# Once completed, get detailed training results
-if status_result['task']['status'] == 'completed':
-    training_results = await mcp_client.call_tool("get_training_results", {
-        "task_id": task_id
-    })
-    print(f"Performance: {training_results['model_info']['performance_summary']}")
-    print(f"Features: {training_results['training_details']['feature_count']}")
-    print(f"Optimization applied: {training_results['optimization_summary']['optimization_applied']}")
+# For completed tasks - all training data is directly available
+if result['task_status'] == 'completed':
+    print(f"Model ID: {result['model_id']}")
+    print(f"Performance: {result['performance_summary']}")
+    print(f"Training time: {result['training_time_seconds']}s")
     
-    # Access detailed results
-    feature_importance = training_results['feature_importance']
-    cv_results = training_results['performance_metrics']
-    best_params = training_results['optimization_summary']['best_params']
+    # Direct access to all training results without re-packaging
+    feature_importance = result['feature_importance']
+    cv_results = result['cross_validation_results'] 
+    optimization_results = result['optimization_results']
+    model_params = result['model_params']
+    metadata = result['metadata']
 ```
 
-### 4. Queue Management
+### 3. Queue Management
 ```python
 # Get overall queue status
 queue_status = await mcp_client.call_tool("get_queue_status", {})
@@ -253,6 +249,11 @@ print(f"Total tasks: {tasks['count']}")
 # Cancel a task if needed
 cancel_result = await mcp_client.call_tool("cancel_training_task", {
     "task_id": task_id
+})
+
+# Check any task status and results with unified tool
+task_results = await mcp_client.call_tool("get_training_results", {
+    "task_id": some_task_id
 })
 ```
 

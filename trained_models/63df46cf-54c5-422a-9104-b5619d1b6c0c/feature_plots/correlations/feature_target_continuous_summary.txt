@@ -1,0 +1,26 @@
+Feature-Target Correlation Analysis
+Target: H_AF (regression)
+==================================================
+
+CONTINUOUS FEATURES:
+------------------------------
+SiO2:
+  Method: pearson
+  Correlation: 0.9223
+  Strength: 0.9223
+
+CeO2:
+  Method: pearson
+  Correlation: 0.4596
+  Strength: 0.4596
+
+Lignin:
+  Method: pearson
+  Correlation: -0.4196
+  Strength: 0.4196
+
+2_VN:
+  Method: pearson
+  Correlation: -0.1587
+  Strength: 0.1587
+

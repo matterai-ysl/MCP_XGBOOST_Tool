@@ -1,0 +1,77 @@
+FEATURE DISTRIBUTION ANALYSIS SUMMARY
+==================================================
+
+Task Type: Regression
+Target Column(s): TS_AF
+Analysis Date: 2025-09-05 21:15:03
+
+CONTINUOUS FEATURES ANALYSIS
+------------------------------
+
+SiO2:
+  Count: 53
+  Mean: 26.5472
+  Std: 9.1474
+  Range: [10.0000, 40.0000]
+  Quartiles: Q1=19.0000, Q2=26.0000, Q3=34.0000
+  Skewness: -0.0551 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0133 (Normal: No)
+    jarque_bera: p=0.1771 (Normal: Yes)
+    dagostino: p=0.0004 (Normal: No)
+
+CeO2:
+  Count: 53
+  Mean: 5.3906
+  Std: 4.0295
+  Range: [0.2000, 14.8000]
+  Quartiles: Q1=1.8000, Q2=5.1000, Q3=8.4000
+  Skewness: 0.7163 (moderately skewed)
+  Skew Severity: moderate
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0014 (Normal: No)
+    jarque_bera: p=0.1009 (Normal: Yes)
+    dagostino: p=0.0896 (Normal: Yes)
+
+Lignin:
+  Count: 53
+  Mean: 4.5038
+  Std: 3.3729
+  Range: [0.0000, 9.9000]
+  Quartiles: Q1=1.6000, Q2=3.8000, Q3=7.9000
+  Skewness: 0.3114 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0003 (Normal: No)
+    jarque_bera: p=0.0794 (Normal: Yes)
+    dagostino: p=0.0000 (Normal: No)
+
+2_VN:
+  Count: 53
+  Mean: 4.5925
+  Std: 2.7217
+  Range: [0.0000, 9.8000]
+  Quartiles: Q1=2.9000, Q2=4.3000, Q3=6.5000
+  Skewness: 0.1709 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.1617 (Normal: Yes)
+    jarque_bera: p=0.4321 (Normal: Yes)
+    dagostino: p=0.2524 (Normal: Yes)
+
+
+RECOMMENDATIONS
+---------------
+1. Consider normality transformations for features that will be used in algorithms assuming normality
+2. Consider normality transformations for features that will be used in algorithms assuming normality
+3. For regression tasks, check if target transformation is needed based on feature-target relationships
+4. Consider polynomial features for non-linear relationships

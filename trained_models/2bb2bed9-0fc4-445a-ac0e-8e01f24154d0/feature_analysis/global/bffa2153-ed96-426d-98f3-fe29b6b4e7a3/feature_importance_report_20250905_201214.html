@@ -1,0 +1,627 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Feature Importance Analysis Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { background-color: #f0f0f0; padding: 20px; border-radius: 5px; }
+                .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+                .metric { display: inline-block; margin: 10px; padding: 10px; background-color: #e8f4fd; border-radius: 3px; }
+                table { border-collapse: collapse; width: 100%; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                .plot { text-align: center; margin: 20px 0; }
+                .plot img { max-width: 100%; height: auto; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Feature Importance Analysis Report</h1>
+                <p>Generated on: 2025-09-05 20:12:14</p>
+            </div>
+        
+        <div class="section">
+            <h2>Permutation Importance Analysis</h2>
+            <p>Feature importance based on the decrease in model performance when feature values are randomly shuffled.</p>
+            
+            <div class="metric">Scoring Metric: neg_mean_squared_error</div>
+            <div class="metric">Repeats: 10</div>
+            <div class="metric">Task Type: regression</div>
+            
+            <h3>Top 10 Features</h3>
+            <table>
+                <tr><th>Rank</th><th>Feature</th><th>Mean Importance</th><th>Std Dev</th><th>95% CI</th></tr>
+        
+                <tr>
+                    <td>1</td>
+                    <td>SiO2</td>
+                    <td>1.1647</td>
+                    <td>0.1252</td>
+                    <td>[0.9143, 1.4151]</td>
+                </tr>
+            
+                <tr>
+                    <td>2</td>
+                    <td>CeO2</td>
+                    <td>0.1084</td>
+                    <td>0.0211</td>
+                    <td>[0.0662, 0.1506]</td>
+                </tr>
+            
+                <tr>
+                    <td>3</td>
+                    <td>2-VN</td>
+                    <td>0.0479</td>
+                    <td>0.0053</td>
+                    <td>[0.0373, 0.0586]</td>
+                </tr>
+            
+                <tr>
+                    <td>4</td>
+                    <td>Lignin</td>
+                    <td>0.0426</td>
+                    <td>0.0031</td>
+                    <td>[0.0365, 0.0487]</td>
+                </tr>
+            </table></div>
+        <div class="section">
+            <h2>SHAP Feature Importance Analysis</h2>
+            <p>SHAP (SHapley Additive exPlanations) values provide detailed explanations of model predictions based on game theory.</p>
+            
+            <div class="metric">Samples Analyzed: 53</div>
+            <div class="metric">SHAP Values Shape: [53, 4]</div>
+            <div class="metric">Analysis Date: 2025-09-05</div>
+            <div class="metric">Dependency Plots: ✅ Created</div>
+            <div class="metric">Interaction Plots: ✅ Created</div>
+            
+            <h3>Top 10 Features (Mean Absolute SHAP Values)</h3>
+            <table>
+                <tr><th>Rank</th><th>Feature</th><th>SHAP Importance</th><th>Percentage</th></tr>
+        
+                <tr>
+                    <td>1</td>
+                    <td>SiO2</td>
+                    <td>0.6594</td>
+                    <td>64.37%</td>
+                </tr>
+            
+                <tr>
+                    <td>2</td>
+                    <td>2-VN</td>
+                    <td>0.1271</td>
+                    <td>12.40%</td>
+                </tr>
+            
+                <tr>
+                    <td>3</td>
+                    <td>CeO2</td>
+                    <td>0.1241</td>
+                    <td>12.11%</td>
+                </tr>
+            
+                <tr>
+                    <td>4</td>
+                    <td>Lignin</td>
+                    <td>0.1139</td>
+                    <td>11.12%</td>
+                </tr>
+            
+            </table>
+        
+            <div style="background-color: #e1f5fe; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <h4>📖 SHAP Interpretation Guide</h4>
+                <ul>
+                    <li><strong>SHAP Importance</strong>: Mean absolute SHAP value across all samples - indicates average feature contribution magnitude</li>
+                    <li><strong>Percentage</strong>: Relative importance compared to all features (sums to 100%)</li>
+                    <li><strong>Mathematical Foundation</strong>: Based on Shapley values from cooperative game theory</li>
+                    <li><strong>Advantages</strong>: Model-agnostic, theoretically grounded, provides both local and global explanations</li>
+                    <li><strong>Dependency Plots</strong>: Show how feature values affect SHAP values, revealing non-linear relationships</li>
+                    <li><strong>Interaction Plots</strong>: Reveal how pairs of features work together to influence predictions</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📊 Visualization Analysis</h2>
+            <p>The following charts provide multi-perspective feature importance analysis to help understand the contribution mechanisms of each feature to model predictions.</p>
+        
+                <div class="plot">
+                    <h3>🔄 Permutation Feature Importance (Model Performance Validation)</h3>
+                    
+                <div style="background-color: #e8f5e8; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <h4>📖 Algorithm Principles</h4>
+                    <p><strong>Calculation Steps:</strong></p>
+                    <ol>
+                        <li>Record baseline model performance: S_baseline</li>
+                        <li>Randomly shuffle feature i values: X'_i = shuffle(X_i)</li>
+                        <li>Calculate performance after shuffling: S_permuted</li>
+                        <li>Importance = S_baseline - S_permuted</li>
+                        <li>Repeat multiple times and take average: E[ΔS] ± σ(ΔS)</li>
+                    </ol>
+                    
+                    <h4>📊 Statistical Interpretation</h4>
+                    <ul>
+                        <li><strong>Expected Value E[ΔS]</strong>: Average contribution of feature to model performance</li>
+                        <li><strong>Standard Deviation σ(ΔS)</strong>: Uncertainty in importance estimation</li>
+                        <li><strong>95% Confidence Interval</strong>: [E[ΔS] ± 1.96×σ(ΔS)]</li>
+                        <li><strong>Negative Values</strong>: Feature may introduce noise, performance improves after removal</li>
+                    </ul>
+                    
+                    <h4>🎯 Key Advantages</h4>
+                    <ul>
+                        <li><strong>Model Agnostic</strong>: Applicable to any machine learning model</li>
+                        <li><strong>True Reflection</strong>: Directly measures feature impact on prediction performance</li>
+                        <li><strong>Unbiased Estimation</strong>: Not affected by feature type and value range</li>
+                        <li><strong>Statistical Reliability</strong>: Provides confidence intervals, quantifies uncertainty</li>
+                    </ul>
+                </div>
+                
+                    <div style="text-align: center; margin: 20px 0; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                        <img src="permutation_importance_20250905_201214.png" alt="🔄 Permutation Feature Importance (Model Performance Validation)" style="max-width: 100%; height: auto; border-radius: 4px;">
+                        <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                            Chart File: permutation_importance_20250905_201214.png
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="plot">
+                    <h3>🔍 SHAP Value Distribution Plot (Shapley Value Analysis)</h3>
+                    
+                <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <h4>📖 Theoretical Foundation</h4>
+                    <p><strong>Shapley Value Formula:</strong></p>
+                    <p>φ_i = Σ_{S⊆N\{i}} [|S|!(n-|S|-1)!/n!] × [f(S∪{i}) - f(S)]</p>
+                    <ul>
+                        <li><strong>φ_i</strong>: Shapley value of feature i</li>
+                        <li><strong>S</strong>: Feature subset not containing feature i</li>
+                        <li><strong>f(S)</strong>: Model output using feature set S</li>
+                        <li><strong>Marginal Contribution</strong>: f(S∪{i}) - f(S)</li>
+                    </ul>
+                    
+                    <h4>🎨 Chart Interpretation</h4>
+                    <ul>
+                        <li><strong>X-axis</strong>: SHAP value magnitude (degree of impact on prediction)</li>
+                        <li><strong>Color Coding</strong>: Feature value magnitude (red=high value, blue=low value)</li>
+                        <li><strong>Point Distribution</strong>: Each point represents a sample's feature contribution</li>
+                        <li><strong>Overlap Density</strong>: Color intensity indicates sample density</li>
+                    </ul>
+                    
+                    <h4>🔬 In-depth Analysis</h4>
+                    <ul>
+                        <li><strong>Non-linear Relationships</strong>: Reveals complex interactions between features and targets</li>
+                        <li><strong>Threshold Effects</strong>: Identifies critical threshold points for feature values</li>
+                        <li><strong>Directionality</strong>: Positive values increase prediction, negative values decrease prediction</li>
+                        <li><strong>Consistency</strong>: Satisfies efficiency, symmetry, and dummy axioms</li>
+                    </ul>
+                </div>
+                
+                    <div style="text-align: center; margin: 20px 0; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                        <img src="shap_summary_20250905_201214.png" alt="🔍 SHAP Value Distribution Plot (Shapley Value Analysis)" style="max-width: 100%; height: auto; border-radius: 4px;">
+                        <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                            Chart File: shap_summary_20250905_201214.png
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="plot">
+                    <h3>📊 SHAP Importance Bar Chart (Mean Absolute Contribution)</h3>
+                    
+                <div style="background-color: #f3e5f5; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <h4>📖 Calculation Method</h4>
+                    <p><strong>Mean Absolute SHAP Value:</strong> E[|φ_i|] = (1/n) × Σ|φ_{i,j}|</p>
+                    <ul>
+                        <li><strong>φ_{i,j}</strong>: SHAP value of feature i in sample j</li>
+                        <li><strong>Absolute Value</strong>: Eliminates cancellation effects of positive and negative impacts</li>
+                        <li><strong>Expected Value</strong>: Average contribution level across all samples</li>
+                    </ul>
+                    
+                    <h4>📈 Ranking Logic</h4>
+                    <ul>
+                        <li><strong>Descending Order</strong>: From most important to least important</li>
+                        <li><strong>Overall Impact</strong>: Reflects average influence of features on all predictions</li>
+                        <li><strong>Stability</strong>: Robust estimation unaffected by extreme values</li>
+                    </ul>
+                    
+                    <h4>🎯 Application Value</h4>
+                    <ul>
+                        <li><strong>Feature Selection</strong>: Identify low-contribution features that can be removed</li>
+                        <li><strong>Model Simplification</strong>: Retain core features to improve interpretability</li>
+                        <li><strong>Business Understanding</strong>: Quantify business importance of various factors</li>
+                    </ul>
+                </div>
+                
+                    <div style="text-align: center; margin: 20px 0; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                        <img src="shap_summary_bar_20250905_201214.png" alt="📊 SHAP Importance Bar Chart (Mean Absolute Contribution)" style="max-width: 100%; height: auto; border-radius: 4px;">
+                        <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                            Chart File: shap_summary_bar_20250905_201214.png
+                        </p>
+                    </div>
+                </div>
+                
+                    <div class="plot">
+                        <h3>🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)</h3>
+                        
+                <div style="background-color: #e8f5e8; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <h4>📖 Analysis Purpose</h4>
+                    <p>SHAP dependency plots reveal how individual feature values affect model predictions and highlight interaction effects with other features.</p>
+                    
+                    <h4>🎨 Chart Interpretation</h4>
+                    <ul>
+                        <li><strong>X-axis</strong>: Feature value range (original feature values)</li>
+                        <li><strong>Y-axis</strong>: SHAP value for this feature (contribution to prediction)</li>
+                        <li><strong>Color Coding</strong>: Values of the most interacting feature (reveals interaction patterns)</li>
+                        <li><strong>Scatter Points</strong>: Each point represents one sample's feature value and SHAP contribution</li>
+                    </ul>
+                    
+                    <h4>🔍 Key Insights</h4>
+                    <ul>
+                        <li><strong>Non-linear Relationships</strong>: Curved patterns indicate non-linear feature effects</li>
+                        <li><strong>Threshold Effects</strong>: Sharp transitions reveal critical value thresholds</li>
+                        <li><strong>Interaction Effects</strong>: Color gradients show how other features modulate the relationship</li>
+                        <li><strong>Outlier Detection</strong>: Points far from main patterns may indicate data quality issues</li>
+                    </ul>
+                    
+                    <h4>💡 Practical Applications</h4>
+                    <ul>
+                        <li><strong>Feature Engineering</strong>: Identify optimal binning or transformation strategies</li>
+                        <li><strong>Business Rules</strong>: Discover actionable thresholds for decision making</li>
+                        <li><strong>Model Validation</strong>: Ensure model behavior aligns with domain knowledge</li>
+                    </ul>
+                </div>
+                
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin: 20px 0;">
+                    
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_SiO2_vs_CeO2_20250905_201208.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_SiO2_vs_CeO2_20250905_201208.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_SiO2_vs_Lignin_20250905_201208.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_SiO2_vs_Lignin_20250905_201208.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_SiO2_vs_2-VN_20250905_201208.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_SiO2_vs_2-VN_20250905_201208.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_CeO2_vs_SiO2_20250905_201208.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_CeO2_vs_SiO2_20250905_201208.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_CeO2_vs_Lignin_20250905_201208.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_CeO2_vs_Lignin_20250905_201208.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_CeO2_vs_2-VN_20250905_201208.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_CeO2_vs_2-VN_20250905_201208.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_Lignin_vs_SiO2_20250905_201208.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_Lignin_vs_SiO2_20250905_201208.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_Lignin_vs_CeO2_20250905_201208.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_Lignin_vs_CeO2_20250905_201208.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_Lignin_vs_2-VN_20250905_201208.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_Lignin_vs_2-VN_20250905_201208.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_2-VN_vs_SiO2_20250905_201209.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_2-VN_vs_SiO2_20250905_201209.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_2-VN_vs_CeO2_20250905_201209.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_2-VN_vs_CeO2_20250905_201209.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_dependency_2-VN_vs_Lignin_20250905_201209.png" alt="🔗 SHAP Dependency Plots (Feature-Value Relationship Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_dependency_2-VN_vs_Lignin_20250905_201209.png
+                                </p>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    
+                    <div class="plot">
+                        <h3>🔄 SHAP Interaction Plots (Feature Synergy Analysis)</h3>
+                        
+                <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <h4>📖 Theoretical Foundation</h4>
+                    <p><strong>SHAP Interaction Values:</strong> φ_{i,j} = Σ_{S⊆N\{i,j}} [|S|!(n-|S|-2)!/(n-1)!] × [f(S∪{i,j}) - f(S∪{i}) - f(S∪{j}) + f(S)]</p>
+                    <ul>
+                        <li><strong>φ_{i,j}</strong>: Interaction effect between features i and j</li>
+                        <li><strong>Symmetric Property</strong>: φ_{i,j} = φ_{j,i}</li>
+                        <li><strong>Additive Decomposition</strong>: Total SHAP = Main effects + Interaction effects</li>
+                    </ul>
+                    
+                    <h4>🎨 Chart Interpretation</h4>
+                    <ul>
+                        <li><strong>X-axis</strong>: Primary feature value</li>
+                        <li><strong>Y-axis</strong>: SHAP interaction value (synergistic contribution)</li>
+                        <li><strong>Color Coding</strong>: Secondary feature value (interaction partner)</li>
+                        <li><strong>Scatter Patterns</strong>: Reveal how feature combinations affect predictions</li>
+                    </ul>
+                    
+                    <h4>🔬 Advanced Analysis</h4>
+                    <ul>
+                        <li><strong>Synergistic Effects</strong>: Positive interactions enhance combined feature impact</li>
+                        <li><strong>Antagonistic Effects</strong>: Negative interactions reduce combined feature impact</li>
+                        <li><strong>Conditional Dependencies</strong>: How one feature's effect depends on another's value</li>
+                        <li><strong>Complex Patterns</strong>: Non-linear interaction surfaces in high-dimensional space</li>
+                    </ul>
+                    
+                    <h4>💼 Business Applications</h4>
+                    <ul>
+                        <li><strong>Strategy Development</strong>: Understand how different factors work together</li>
+                        <li><strong>Resource Allocation</strong>: Optimize combinations of interventions</li>
+                        <li><strong>Risk Assessment</strong>: Identify dangerous feature combinations</li>
+                        <li><strong>Product Design</strong>: Leverage feature synergies for better outcomes</li>
+                    </ul>
+                </div>
+                
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin: 20px 0;">
+                    
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_SiO2_vs_CeO2_20250905_201209.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_SiO2_vs_CeO2_20250905_201209.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_SiO2_vs_CeO2_20250905_201209.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_SiO2_vs_CeO2_20250905_201209.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_SiO2_vs_Lignin_20250905_201209.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_SiO2_vs_Lignin_20250905_201209.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_SiO2_vs_Lignin_20250905_201209.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_SiO2_vs_Lignin_20250905_201209.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_SiO2_vs_2-VN_20250905_201210.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_SiO2_vs_2-VN_20250905_201210.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_SiO2_vs_2-VN_20250905_201210.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_SiO2_vs_2-VN_20250905_201210.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_CeO2_vs_SiO2_20250905_201210.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_CeO2_vs_SiO2_20250905_201210.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_CeO2_vs_SiO2_20250905_201210.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_CeO2_vs_SiO2_20250905_201210.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_CeO2_vs_Lignin_20250905_201211.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_CeO2_vs_Lignin_20250905_201211.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_CeO2_vs_Lignin_20250905_201211.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_CeO2_vs_Lignin_20250905_201211.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_CeO2_vs_2-VN_20250905_201211.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_CeO2_vs_2-VN_20250905_201211.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_CeO2_vs_2-VN_20250905_201211.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_CeO2_vs_2-VN_20250905_201211.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_Lignin_vs_SiO2_20250905_201211.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_Lignin_vs_SiO2_20250905_201211.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_Lignin_vs_SiO2_20250905_201211.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_Lignin_vs_SiO2_20250905_201211.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_Lignin_vs_CeO2_20250905_201212.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_Lignin_vs_CeO2_20250905_201212.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_Lignin_vs_CeO2_20250905_201212.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_Lignin_vs_CeO2_20250905_201212.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_Lignin_vs_2-VN_20250905_201212.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_Lignin_vs_2-VN_20250905_201212.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_Lignin_vs_2-VN_20250905_201212.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_Lignin_vs_2-VN_20250905_201212.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_2-VN_vs_SiO2_20250905_201213.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_2-VN_vs_SiO2_20250905_201213.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_2-VN_vs_SiO2_20250905_201213.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_2-VN_vs_SiO2_20250905_201213.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_2-VN_vs_CeO2_20250905_201213.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_2-VN_vs_CeO2_20250905_201213.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_2-VN_vs_CeO2_20250905_201213.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_2-VN_vs_CeO2_20250905_201213.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_dependence_2-VN_vs_Lignin_20250905_201214.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_dependence_2-VN_vs_Lignin_20250905_201214.png
+                                </p>
+                            </div>
+                            
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                                <img src="shap_interaction_heatmap_2-VN_vs_Lignin_20250905_201214.png" alt="🔄 SHAP Interaction Plots (Feature Synergy Analysis)" style="width: 100%; height: auto; border-radius: 4px;">
+                                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                                    Chart File: shap_interaction_heatmap_2-VN_vs_Lignin_20250905_201214.png
+                                </p>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    
+                <div class="plot">
+                    <h3>⚖️ Feature Importance Method Comparison</h3>
+                    
+                <div style="background-color: #fafafa; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <h4>📊 Methodological Comparison</h4>
+                    <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+                        <tr style="background-color: #f5f5f5;">
+                            <th style="border: 1px solid #ddd; padding: 8px;">Method</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Theoretical Foundation</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Computational Cost</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Applicability</th>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;"><strong>Gini Importance</strong></td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Impurity Reduction</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Very Low</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">XGBoost Only</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;"><strong>Permutation Importance</strong></td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Performance Degradation</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Medium</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Any Model</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;"><strong>SHAP Values</strong></td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Game Theory</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">High</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Any Model</td>
+                        </tr>
+                    </table>
+                    
+                    <h4>🎯 Consistency Analysis</h4>
+                    <ul>
+                        <li><strong>High Consistency</strong>: Similar rankings across three methods indicate reliable feature importance</li>
+                        <li><strong>Partial Differences</strong>: Normal phenomenon reflecting different emphases of methods</li>
+                        <li><strong>Significant Divergence</strong>: Requires in-depth investigation, may indicate data quality issues</li>
+                    </ul>
+                    
+                    <h4>💡 Selection Recommendations</h4>
+                    <ul>
+                        <li><strong>Quick Screening</strong>: Use Gini importance</li>
+                        <li><strong>Reliable Validation</strong>: Use permutation importance</li>
+                        <li><strong>Deep Interpretation</strong>: Use SHAP analysis</li>
+                        <li><strong>Comprehensive Decision</strong>: Combine consistent conclusions from all three methods</li>
+                    </ul>
+                </div>
+                
+                    <div style="text-align: center; margin: 20px 0; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background-color: white;">
+                        <img src="importance_comparison_20250905_201214.png" alt="⚖️ Feature Importance Method Comparison" style="max-width: 100%; height: auto; border-radius: 4px;">
+                        <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666; font-style: italic;">
+                            Chart File: importance_comparison_20250905_201214.png
+                        </p>
+                    </div>
+                </div>
+                </div></body></html>

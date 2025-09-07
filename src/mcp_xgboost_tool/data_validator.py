@@ -546,8 +546,8 @@ class DataValidator:
             normalized_col = normalized_col.strip('_')
             
             # Ensure it starts with a letter
-            if not normalized_col[0].isalpha():
-                normalized_col = 'feature_' + normalized_col
+            # if not normalized_col[0].isalpha():
+            #     normalized_col = 'feature_' + normalized_col
             
             # Handle empty names
             if not normalized_col:

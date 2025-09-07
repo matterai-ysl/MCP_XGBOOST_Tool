@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Prediction Report - 2bb2bed9-0fc4-445a-ac0e-8e01f24154d0</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .section { margin: 25px 0; background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #007bff; }
+        .metric { display: inline-block; margin: 10px; padding: 15px; background-color: #e3f2fd; border-radius: 6px; min-width: 150px; text-align: center; }
+        .metric strong { display: block; font-size: 1.2em; color: #1976d2; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; color: #333; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #f5f5f5; }
+        .feature-value { font-family: monospace; background-color: #f8f9fa; padding: 2px 6px; border-radius: 3px; }
+        .prediction-value { font-weight: bold; color: #28a745; }
+        .confidence-value { color: #dc3545; }
+        .high-confidence { color: #28a745; }
+        .medium-confidence { color: #ffc107; }
+        .low-confidence { color: #dc3545; }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
+        h3 { color: #555; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔮 Xgboost Prediction Report</h1>
+        <p><strong>Model ID:</strong> 2bb2bed9-0fc4-445a-ac0e-8e01f24154d0</p>
+        <p><strong>Task Type:</strong> Regression</p>
+        <p><strong>Prediction Time:</strong> 2025-09-05T20:16:08.784194</p>
+    </div>
+    
+        <div class="section">
+        <h2>📊 Summary</h2>
+        <div class="metric">
+            <strong>1</strong>
+            <span>Total Predictions</span>
+        </div>
+        <div class="metric">
+            <strong>0.059s</strong>
+            <span>Processing Time</span>
+        </div>
+        <div class="metric">
+            <strong>4</strong>
+            <span>Features Used</span>
+        </div>
+        <div class="metric">
+            <strong>No</strong>
+            <span>Preprocessing Applied</span>
+        </div>
+    </div>
+    <div class="section">
+        <h2>🔧 Feature Information</h2>
+        <p><strong>Total Features:</strong> 4</p>
+        <table>
+            <tr><th>Feature Name</th><th>Sample Values</th></tr><tr><td><strong>SiO2</strong></td><td><span class='feature-value'>14.0000</span></td></tr><tr><td><strong>CeO2</strong></td><td><span class='feature-value'>1.4000</span></td></tr><tr><td><strong>Lignin</strong></td><td><span class='feature-value'>9.5000</span></td></tr><tr><td><strong>2-VN</strong></td><td><span class='feature-value'>2.8000</span></td></tr></table></div>
+    <div class="section">
+        <h2>🎯 Detailed Predictions & Features</h2>
+        <table>
+            <tr><th>Sample #</th><th>SiO2</th><th>CeO2</th><th>Lignin</th><th>2-VN</th><th>Prediction</th><th>Uncertainty/Confidence</th></tr><tr><td><strong>#1</strong></td><td><span class='feature-value'>14.0000</span></td><td><span class='feature-value'>1.4000</span></td><td><span class='feature-value'>9.5000</span></td><td><span class='feature-value'>2.8000</span></td><td><span class='prediction-value'>28.8027</span></td><td><span class='confidence-value high-confidence'>0.9987</span></td></tr></table></div>
+    <div class="section">
+        <h2>💾 Saved Files</h2>
+        <table>
+            <tr><th>File</th><th>Description</th><th>Path</th></tr><tr><td><strong>01_original_data.csv</strong></td><td>Original input features</td><td><small>trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/01_original_data.csv</small></td></tr><tr><td><strong>02_processed_features.csv</strong></td><td>Preprocessed features</td><td><small>trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/02_processed_features.csv</small></td></tr><tr><td><strong>03_predictions_processed_scale.csv</strong></td><td>Predictions in processed/normalized scale</td><td><small>trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/03_predictions_processed_scale.csv</small></td></tr><tr><td><strong>04_predictions_original_scale.csv</strong></td><td>Predictions in original scale</td><td><small>trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/04_predictions_original_scale.csv</small></td></tr><tr><td><strong>05_confidence_scores.csv</strong></td><td>Confidence/uncertainty scores</td><td><small>trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/05_confidence_scores.csv</small></td></tr><tr><td><strong>06_combined_results.csv</strong></td><td>Complete combined dataset with features and predictions</td><td><small>trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/06_combined_results.csv</small></td></tr></table></div>
+    <div class="section">
+        <h2>ℹ️ Notes</h2>
+        <ul>
+            <li><strong>Predictions:</strong> Model output values for each input sample</li>
+            <li><strong>Uncertainty/Confidence:</strong> Measure of prediction reliability (higher is more confident)</li>
+            <li><strong>Feature Importance:</strong> How much each feature contributes to the model's decisions</li>
+            <li><strong>Processing Time:</strong> Total time taken for data processing and prediction</li>
+        </ul>
+    </div>
+</body>
+</html>

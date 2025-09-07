@@ -300,9 +300,13 @@ class TrainingQueueManager:
                 
                 # Execute the actual training
                 if task.task_type == "regression":
-                    result = await training_engine.train_xgboost_async(**task.params)
+                    result = await training_engine.train_xgboost(**task.params)
+                    print("--------------------------------")
+                    print("result")
+                    print(result)
+
                 elif task.task_type == "classification":
-                    result = await training_engine.train_xgboost_async(**task.params)
+                    result = await training_engine.train_xgboost(**task.params)
                 else:
                     raise ValueError(f"Unknown task type: {task.task_type}")
                 

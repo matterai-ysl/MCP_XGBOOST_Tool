@@ -1,0 +1,79 @@
+{
+  "model_id": "2bb2bed9-0fc4-445a-ac0e-8e01f24154d0",
+  "task_type": "regression",
+  "is_batch": false,
+  "predictions": -1.5634962320327759,
+  "raw_predictions": 28.802709579467773,
+  "confidence_scores": [
+    0.9987300038337708
+  ],
+  "label_mapping": null,
+  "error_occurred": false,
+  "error_message": null,
+  "prediction_id": "2228777e-7f0e-4ecc-9d2a-c6498c632a57",
+  "prediction_metadata": {
+    "prediction_timestamp": "2025-09-05T20:16:08.784194",
+    "feature_names": [
+      "SiO2",
+      "CeO2",
+      "Lignin",
+      "2-VN"
+    ],
+    "feature_values": [
+      [
+        -1.384785723159973,
+        -0.9998219880898948,
+        1.4954558000473388,
+        -0.6648814754948814
+      ]
+    ],
+    "num_samples": 1,
+    "prediction_time_seconds": 0.058811,
+    "tool_input_details": {
+      "model_id": "2bb2bed9-0fc4-445a-ac0e-8e01f24154d0",
+      "feature_values": [
+        14.0,
+        1.4,
+        9.5,
+        2.8
+      ],
+      "feature_names": [
+        "SiO2",
+        "CeO2",
+        "Lignin",
+        "2-VN"
+      ],
+      "include_confidence": true,
+      "save_intermediate_files": true,
+      "generate_report": true,
+      "output_path": null
+    }
+  },
+  "saved_files": {
+    "original_data": "trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/01_original_data.csv",
+    "processed_features": "trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/02_processed_features.csv",
+    "predictions_processed": "trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/03_predictions_processed_scale.csv",
+    "predictions_original": "trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/04_predictions_original_scale.csv",
+    "confidence_scores": "trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/05_confidence_scores.csv",
+    "combined_results": "trained_models/2bb2bed9-0fc4-445a-ac0e-8e01f24154d0/predictions/2228777e-7f0e-4ecc-9d2a-c6498c632a57/06_combined_results.csv"
+  },
+  "folder_structure": {
+    "01_original_data.csv": "Original input data as provided",
+    "02_processed_features.csv": "Features after preprocessing/normalization",
+    "03_predictions_processed_scale.csv": "Predictions in processed/normalized scale",
+    "04_predictions_original_scale.csv": "Predictions transformed back to original scale",
+    "05_confidence_scores.csv": "Confidence/uncertainty scores for each prediction",
+    "06_combined_results.csv": "All data combined: features + predictions + confidence",
+    "prediction_summary.json": "Complete prediction results and metadata",
+    "prediction_report.html": "Detailed HTML report"
+  },
+  "archive_info": {
+    "archive_path": "trained_models/archives/prediction_2228777e-7f0e-4ecc-9d2a-c6498c632a57_20250905_201608.zip",
+    "archive_filename": "prediction_2228777e-7f0e-4ecc-9d2a-c6498c632a57_20250905_201608.zip",
+    "archive_size_bytes": 5997,
+    "archive_size_mb": 0.01,
+    "created_at": "2025-09-05T20:16:08.788517",
+    "download_url": "/download/file/trained_models/archives/prediction_2228777e-7f0e-4ecc-9d2a-c6498c632a57_20250905_201608.zip",
+    "relative_path": "trained_models/archives/prediction_2228777e-7f0e-4ecc-9d2a-c6498c632a57_20250905_201608.zip"
+  }
+}

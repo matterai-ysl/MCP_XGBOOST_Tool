@@ -580,8 +580,8 @@ class PredictionEngine:
             'task_type': model_info['task_type'] if model_info else 'unknown',
             'is_batch': is_batch,
             'target_name': model_info['target_name'] if model_info else 'unknown',
-            'predictions': display_predictions,  # Use display predictions (with labels for classification)
-            'raw_predictions': formatted_raw_predictions,  # Keep raw numeric predictions for label mapping in reports
+            #'predictions': display_predictions,  # Use display predictions (with labels for classification)
+            'predictions': formatted_raw_predictions,  # Keep raw numeric predictions for label mapping in reports
             'confidence_scores': confidence_scores,
             'prediction_metadata': {
                 'prediction_timestamp': datetime.now().isoformat(),

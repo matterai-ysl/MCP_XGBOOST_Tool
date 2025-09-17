@@ -113,10 +113,8 @@ mcp = FastMCP(
     """
 )
 
-# Initialize engines
+# Initialize shared components (thread-safe)
 root_dir = Path("./trained_models")
-training_engine = TrainingEngine("trained_models")
-prediction_engine = PredictionEngine("trained_models")
 model_manager = ModelManager("trained_models")
 
 # Initialize queue manager at startup
@@ -415,6 +413,9 @@ async def predict_from_file_xgbost(
     try:
         logger.info(f"Making batch predictions with model {model_id} from file: {data_source}")
         
+        # Create prediction engine instance per call for thread safety
+        prediction_engine = PredictionEngine("trained_models")
+
         # Run prediction in executor to avoid blocking
         result = await asyncio.get_event_loop().run_in_executor(
             None,
@@ -468,6 +469,9 @@ async def predict_from_values_xgboost(
     try:
         logger.info(f"Making real-time prediction with model {model_id}")
         
+        # Create prediction engine instance per call for thread safety
+        prediction_engine = PredictionEngine("trained_models")
+
         # Run prediction in executor to avoid blocking
         result = await asyncio.get_event_loop().run_in_executor(
             None,

@@ -26,7 +26,7 @@ import zipfile
 import os
 
 # FastMCP import
-from fastmcp import FastMCP
+from fastmcp import FastMCP,Context
 from .config import BASE_URL,get_download_url,get_static_url
 # Internal modules
 from .training import TrainingEngine
@@ -125,10 +125,6 @@ async def initialize_server():
     await initialize_queue_manager()
     logger.info("Queue manager initialized successfully")
 
-# @mcp.custom_route("/hello/{name}", methods=["GET"])
-# async def simple_hello(request: Request) -> PlainTextResponse:
-#     name = request.path_params["name"]
-#     return PlainTextResponse(f"Hello, {name}!")
 
 @mcp.tool()
 async def train_xgboost_regressor(
@@ -143,7 +139,8 @@ async def train_xgboost_regressor(
     apply_preprocessing: bool = True,
     scaling_method: str = "standard",
     enable_gpu: bool = True,
-    device: str = "auto"
+    device: str = "auto",
+    ctx: Context = None #type: ignore
 ) -> Dict[str, Any]:
     """
     Train an XGBoost regression model with multi-target support and advanced features.
@@ -173,6 +170,12 @@ async def train_xgboost_regressor(
     Returns:
         Training results including model performance, metadata, and XGBoost-specific information
     """
+    if ctx is not None:
+        user_id = ctx.request_context.request.headers.get("user_id",None) #type: ignore
+    else:
+        user_id = None
+    print(user_id)
+
     try:
         logger.info(f"Training XGBoost regression model from: {data_source}")
 
@@ -239,7 +242,7 @@ async def train_xgboost_regressor(
         task_id = await queue_manager.submit_task(
             task_type="regression",
             params=task_params,
-            user_id=None  # Can be added as parameter if needed
+            user_id=user_id  # Can be added as parameter if needed
         )
         
         # Get queue status
@@ -491,8 +494,8 @@ async def predict_from_values_xgboost(
 @mcp.tool()
 async def analyze_xgboost_global_feature_importance(
     model_id: str,
-    data_source: str = None, # type: ignore
-    analysis_types: List[str] = ["basic"],
+    #data_source: str = None, # type: ignore
+    analysis_types: List[str] = ["shap"],
     generate_plots: bool = True,
     generate_report: bool = True
 ) -> Dict[str, Any]:
@@ -501,8 +504,7 @@ async def analyze_xgboost_global_feature_importance(
     
     Args:
         model_id: Unique identifier for the trained model
-        data_source: Path to data file for permutation analysis (if None, uses saved training data)
-        analysis_types: Types of analysis to perform ["basic", "permutation", "shap"], default is ["basic", "shap"]
+        analysis_types: Types of analysis to perform ["basic", "permutation", "shap"], default is ["shap"]
         generate_plots: Whether to generate visualization plots
         generate_report: Whether to generate analysis report
     Returns:
@@ -510,7 +512,7 @@ async def analyze_xgboost_global_feature_importance(
     """
     try:
         logger.info(f"Analyzing feature importance for model {model_id}")
-        
+        data_source = None
         # Load model info first
         model_info = model_manager.get_model_info(model_id)
         

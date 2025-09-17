@@ -215,7 +215,7 @@ class PredictionEngine:
                 'task_type': model_info['task_type'] if model_info else 'unknown',
                 'target_name': model_info['target_name'] if model_info else 'unknown',
                 'predictions': predictions_original_scale.tolist()[:10],
-                'confidence_scores': confidence_scores[:10],
+                'confidence_scores': confidence_scores[:10], # type: ignore
                 'num_predictions': len(predictions_original_scale),
                 'input_data': df_original.to_dict(orient='records')[:10],
             }

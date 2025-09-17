@@ -115,6 +115,30 @@ mcp = FastMCP(
 
 # Initialize shared components (thread-safe)
 root_dir = Path("./trained_models")
+
+def get_user_models_dir(user_id: Optional[str] = None) -> str:
+    """
+    Get the models directory for a specific user or default.
+
+    Args:
+        user_id: User identifier, if None uses 'default' user
+
+    Returns:
+        Path to user's models directory
+    """
+    if user_id is None or user_id.strip() == "":
+        user_id = "default"
+
+    # Sanitize user_id to prevent path traversal
+    import re
+    user_id = re.sub(r'[^\w\-_]', '_', user_id)
+
+    user_dir = root_dir / user_id
+    user_dir.mkdir(parents=True, exist_ok=True)
+
+    return str(user_dir)
+
+# Global model manager will be updated per call to use user-specific directories
 model_manager = ModelManager("trained_models")
 
 # Initialize queue manager at startup
@@ -197,6 +221,9 @@ async def train_xgboost_regressor(
         else:
             raise ValueError(f"Invalid scoring metric: {scoring_metric}. Supported metrics: MSE, MAE, RMSE, R2, MAPE, explained_variance, max_error, MAD")
 
+        # Get user-specific models directory
+        user_models_dir = get_user_models_dir(user_id)
+
         # Load and validate data for multi-target regression
         from .data_utils import DataProcessor
         data_processor = DataProcessor()
@@ -234,6 +261,7 @@ async def train_xgboost_regressor(
             'task_type': "regression",
             'enable_gpu': enable_gpu,
             'device': device,
+            'models_dir': user_models_dir,  # User-specific models directory
         }
         
         # Submit to queue
@@ -281,6 +309,7 @@ async def train_xgboost_classifier(
     save_model: bool = True,
     enable_gpu: bool = True,
     device: str = "auto",
+    ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
     Train an XGBoost classifier for classification tasks (supports multi-class).
@@ -303,7 +332,16 @@ async def train_xgboost_classifier(
         Training results including model performance, metadata, and XGBoost-specific information
     """
     try:
+        # Get user ID from context
+        if ctx is not None:
+            user_id = ctx.request_context.request.headers.get("user_id", None)  # type: ignore
+        else:
+            user_id = None
+
         logger.info(f"Training XGBoost classifier from: {data_source}")
+
+        # Get user-specific models directory
+        user_models_dir = get_user_models_dir(user_id)
 
         # Convert scoring metric to sklearn format
         if scoring_metric == 'accuracy':
@@ -355,7 +393,8 @@ async def train_xgboost_classifier(
             'save_model': save_model,
             'task_type': "classification",
             'enable_gpu': enable_gpu,
-            'device': device
+            'device': device,
+            'models_dir': user_models_dir,  # User-specific models directory
         }
         
         # Submit to queue
@@ -395,7 +434,8 @@ async def predict_from_file_xgbost(
     data_source: str,
     output_path: str = None, # type: ignore
     include_confidence: bool = True,
-    generate_report: bool = True
+    generate_report: bool = True,
+    ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
     Make batch predictions from a data file.
@@ -411,10 +451,17 @@ async def predict_from_file_xgbost(
         Prediction results and analysis
     """
     try:
+        # Get user ID from context
+        if ctx is not None:
+            user_id = ctx.request_context.request.headers.get("user_id", None)  # type: ignore
+        else:
+            user_id = None
+
         logger.info(f"Making batch predictions with model {model_id} from file: {data_source}")
-        
-        # Create prediction engine instance per call for thread safety
-        prediction_engine = PredictionEngine("trained_models")
+
+        # Get user-specific models directory and create prediction engine instance per call for thread safety
+        user_models_dir = get_user_models_dir(user_id)
+        prediction_engine = PredictionEngine(user_models_dir)
 
         # Run prediction in executor to avoid blocking
         result = await asyncio.get_event_loop().run_in_executor(
@@ -445,7 +492,8 @@ async def predict_from_values_xgboost(
     include_confidence: bool = True,
     save_intermediate_files: bool = True,
     generate_report: bool = True,
-    output_path: str = None # type: ignore
+    output_path: str = None, # type: ignore
+    ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
     Make real-time predictions from feature values with CSV export and reporting.
@@ -467,10 +515,17 @@ async def predict_from_values_xgboost(
         Prediction results, CSV file paths, and analysis
     """
     try:
+        # Get user ID from context
+        if ctx is not None:
+            user_id = ctx.request_context.request.headers.get("user_id", None)  # type: ignore
+        else:
+            user_id = None
+
         logger.info(f"Making real-time prediction with model {model_id}")
-        
-        # Create prediction engine instance per call for thread safety
-        prediction_engine = PredictionEngine("trained_models")
+
+        # Get user-specific models directory and create prediction engine instance per call for thread safety
+        user_models_dir = get_user_models_dir(user_id)
+        prediction_engine = PredictionEngine(user_models_dir)
 
         # Run prediction in executor to avoid blocking
         result = await asyncio.get_event_loop().run_in_executor(
@@ -501,7 +556,8 @@ async def analyze_xgboost_global_feature_importance(
     #data_source: str = None, # type: ignore
     analysis_types: List[str] = ["shap"],
     generate_plots: bool = True,
-    generate_report: bool = True
+    generate_report: bool = True,
+    ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
     Analyze feature importance of a trained model. shap patterns quantify interactions between features
@@ -515,17 +571,26 @@ async def analyze_xgboost_global_feature_importance(
         Feature importance analysis results
     """
     try:
+        # Get user ID from context
+        if ctx is not None:
+            user_id = ctx.request_context.request.headers.get("user_id", None)  # type: ignore
+        else:
+            user_id = None
+
         logger.info(f"Analyzing feature importance for model {model_id}")
         data_source = None
-        # Load model info first
-        model_info = model_manager.get_model_info(model_id)
+
+        # Get user-specific models directory and load model info
+        user_models_dir = get_user_models_dir(user_id)
+        user_model_manager = ModelManager(user_models_dir)
+        model_info = user_model_manager.get_model_info(model_id)
         
         def run_analysis():
             # Load model
-            model = model_manager.load_model(model_id)
-            
+            model = user_model_manager.load_model(model_id)
+
             # Set up output directory for feature analysis
-            model_dir = Path("trained_models") / model_id
+            model_dir = Path(user_models_dir) / model_id
             task_id = str(uuid.uuid4())
             output_dir = model_dir / "feature_analysis" / "global" / task_id
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -825,7 +890,8 @@ async def analyze_xgboost_global_feature_importance(
                     output_dir=output_dir,
                     analysis_type="global",
                     task_id=task_id,
-                    model_id=model_id
+                    model_id=model_id,
+                    user_models_dir=user_models_dir
                 )
                 if archive_path:
                     archive_relative_path = get_download_url(archive_path)
@@ -919,24 +985,34 @@ async def analyze_xgboost_global_feature_importance(
         return {"error": error_msg, "traceback": traceback.format_exc()}
 
 @mcp.tool()
-async def list_xgboost_models() -> List[Dict[str, Any]]:
+async def list_xgboost_models(ctx: Context = None) -> List[Dict[str, Any]]:  # type: ignore
     """
-    List all available trained models.
-    
+    List all available trained models for the current user.
+
     Returns:
         List of model information including IDs, names, and metadata
     """
     try:
+        # Get user ID from context
+        if ctx is not None:
+            user_id = ctx.request_context.request.headers.get("user_id", None)  # type: ignore
+        else:
+            user_id = None
+
         logger.info("Listing all available models")
-        
+
+        # Get user-specific models directory
+        user_models_dir = get_user_models_dir(user_id)
+        user_model_manager = ModelManager(user_models_dir)
+
         # Run in executor to avoid blocking
         models = await asyncio.get_event_loop().run_in_executor(
-            None, model_manager.list_models
+            None, user_model_manager.list_models
         )
-        
+
         logger.info(f"Found {len(models)} available models")
         return models
-        
+
     except Exception as e:
         error_msg = f"Failed to list models: {str(e)}"
         logger.error(error_msg)
@@ -944,27 +1020,37 @@ async def list_xgboost_models() -> List[Dict[str, Any]]:
         return {"error": error_msg, "traceback": traceback.format_exc()} # type: ignore
 
 @mcp.tool()
-async def get_xgboost_model_info(model_id: str) -> Dict[str, Any]:
+async def get_xgboost_model_info(model_id: str, ctx: Context = None) -> Dict[str, Any]:  # type: ignore
     """
     Get detailed information about a specific model.
-    
+
     Args:
         model_id: Unique identifier for the model
-        
+
     Returns:
         Detailed model information including performance metrics and metadata
     """
     try:
+        # Get user ID from context
+        if ctx is not None:
+            user_id = ctx.request_context.request.headers.get("user_id", None)  # type: ignore
+        else:
+            user_id = None
+
         logger.info(f"Getting information for model: {model_id}")
-        
+
+        # Get user-specific models directory
+        user_models_dir = get_user_models_dir(user_id)
+        user_model_manager = ModelManager(user_models_dir)
+
         # Run in executor to avoid blocking
         model_info = await asyncio.get_event_loop().run_in_executor(
-            None, model_manager.get_model_info, model_id
+            None, user_model_manager.get_model_info, model_id
         )
-        
+
         logger.info("Model information retrieved successfully")
         return model_info
-        
+
     except Exception as e:
         error_msg = f"Failed to get model info: {str(e)}"
         logger.error(error_msg)
@@ -972,31 +1058,41 @@ async def get_xgboost_model_info(model_id: str) -> Dict[str, Any]:
         return {"error": error_msg, "traceback": traceback.format_exc()}
 
 @mcp.tool()
-async def delete_xgboost_model(model_id: str) -> Dict[str, Any]:
+async def delete_xgboost_model(model_id: str, ctx: Context = None) -> Dict[str, Any]:  # type: ignore
     """
     Delete a trained model.
-    
+
     Args:
         model_id: Unique identifier for the model to delete
-        
+
     Returns:
         Deletion status and information
     """
     try:
+        # Get user ID from context
+        if ctx is not None:
+            user_id = ctx.request_context.request.headers.get("user_id", None)  # type: ignore
+        else:
+            user_id = None
+
         logger.info(f"Deleting model: {model_id}")
-        
+
+        # Get user-specific models directory
+        user_models_dir = get_user_models_dir(user_id)
+        user_model_manager = ModelManager(user_models_dir)
+
         # Run in executor to avoid blocking
         result = await asyncio.get_event_loop().run_in_executor(
-            None, model_manager.delete_model, model_id
+            None, user_model_manager.delete_model, model_id
         )
-        
+
         if result.get('success', False):
             logger.info("Model deleted successfully")
         else:
             logger.warning(f"Model deletion failed: {result.get('error', 'Unknown error')}")
-        
+
         return result
-        
+
     except Exception as e:
         error_msg = f"Failed to delete model: {str(e)}"
         logger.error(error_msg)
@@ -1010,9 +1106,10 @@ async def analyze_xgboost_local_feature_importance(
     model_id: str,
     sample_data: Union[List[float], List[List[float]], Dict[str, float], List[Dict[str, float]]] = None, # type: ignore
     data_source: str = None, # type: ignore
-    plot_types: List[str] = ["waterfall", "force", "decision"], 
+    plot_types: List[str] = ["waterfall", "force", "decision"],
     generate_plots: bool = True,
-    generate_report: bool = True
+    generate_report: bool = True,
+    ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
     Analyze local feature importance for individual samples using SHAP.
@@ -1032,17 +1129,24 @@ async def analyze_xgboost_local_feature_importance(
         - report_path: Path to HTML report (if generate_report=True)
     """
     try:
+        # Get user ID from context
+        if ctx is not None:
+            user_id = ctx.request_context.request.headers.get("user_id", None)  # type: ignore
+        else:
+            user_id = None
+
         logger.info(f"Analyzing local feature importance for model {model_id}")
 
-        
-        # Load model info first
-        model_info = model_manager.get_model_info(model_id)
+        # Get user-specific models directory and load model info
+        user_models_dir = get_user_models_dir(user_id)
+        user_model_manager = ModelManager(user_models_dir)
+        model_info = user_model_manager.get_model_info(model_id)
         
         def run_analysis():
             # Load model
-            model = model_manager.load_model(model_id)
+            model = user_model_manager.load_model(model_id)
             # Set up output directory for local feature analysis
-            model_dir = Path("trained_models") / model_id
+            model_dir = Path(user_models_dir) / model_id
             task_id = str(uuid.uuid4())
             output_dir = model_dir / "feature_analysis" / "local" / task_id
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -1317,7 +1421,7 @@ async def analyze_xgboost_local_feature_importance(
                     additional_samples=sample_indices_to_plot[1:],
                     save_plots=True
                 )
-                analysis_results['plot_paths'] = plot_paths
+                # analysis_results['plot_paths'] = plot_paths
                 logger.info(f"✓ Generated {len(plot_paths)} plots for local analysis")
             
             # Generate report (optional)
@@ -1383,7 +1487,8 @@ async def analyze_xgboost_local_feature_importance(
                     output_dir=output_dir,
                     analysis_type="local",
                     task_id=task_id,
-                    model_id=model_id
+                    model_id=model_id,
+                    user_models_dir=user_models_dir
                 )
                 if archive_path:
                     archive_relative_path = get_download_url(archive_path)
@@ -1427,12 +1532,12 @@ async def analyze_xgboost_local_feature_importance(
 
 
 
-def _create_analysis_archive(output_dir: Path, analysis_type: str, task_id: str, model_id: str) -> str:
+def _create_analysis_archive(output_dir: Path, analysis_type: str, task_id: str, model_id: str, user_models_dir: str) -> str:
 
     """创建分析结果的ZIP压缩包"""
     try:
         # 创建archives目录
-        archives_dir = Path("trained_models") / model_id / "feature_analysis" / "archives"
+        archives_dir = Path(user_models_dir) / model_id / "feature_analysis" / "archives"
         archives_dir.mkdir(parents=True, exist_ok=True)
         
         # 创建ZIP文件路径

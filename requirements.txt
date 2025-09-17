@@ -17,7 +17,7 @@ plotly>=5.15.0
 
 # Web Framework & MCP
 fastapi>=0.104.0
-mcp>=1.0.0
+fastmcp>=1.0.0
 uvicorn>=0.24.0
 
 # Utilities

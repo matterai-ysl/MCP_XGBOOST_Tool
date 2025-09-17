@@ -172,12 +172,12 @@ class LocalFeatureImportanceAnalyzer:
             if task_config['task_type'] == 'classification':
                 return self._process_classification_sample(
                     sample_shap_values, prediction, X_sample, X_background,
-                    feature_names, model, task_config, original_sample, sample_index
+                    feature_names, model, task_config, original_sample, sample_index # type: ignore
                 )
             else:  # regression
                 return self._process_regression_sample(
                     sample_shap_values, prediction, X_sample, X_background,
-                    feature_names, model, task_config, original_sample, sample_index
+                    feature_names, model, task_config, original_sample, sample_index # type: ignore
                 )
             
         except Exception as e:

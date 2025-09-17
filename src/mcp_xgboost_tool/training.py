@@ -1100,7 +1100,7 @@ class TrainingEngine:
                 'feature_names': feature_names,
                 'target_names': target_column,
                 'best_hyperparameters': optimized_params or base_params,
-                'feature_importance': feature_importance,
+                #'feature_importance': feature_importance,
                 'performance_summary': self._generate_performance_summary(enhanced_cv_results, final_task_type, scoring_metric), # type: ignore
                 "trained_report_summary_html_path":f"You can find the html trained report summary in {report_relative_path}",
                 "trained_details":f"""All detailed training data are saved in {zip_relative_path},

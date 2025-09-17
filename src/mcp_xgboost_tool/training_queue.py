@@ -296,7 +296,9 @@ class TrainingQueueManager:
                 
                 # Import training engine here to avoid circular imports
                 from .training import TrainingEngine
-                training_engine = TrainingEngine()
+                # Get user-specific models directory from task parameters
+                models_dir = task.params.get('models_dir', 'trained_models')
+                training_engine = TrainingEngine(models_dir)
                 
                 # Execute the actual training
                 if task.task_type == "regression":

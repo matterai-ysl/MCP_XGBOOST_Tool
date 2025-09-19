@@ -1,5 +1,5 @@
 #BASE_URL = "http://localhost:8100"
-BASE_URL = "http://47.99.180.80/xgboost"
+BASE_URL = "https://47.99.180.80/xgboost"
 DOWNLOAD_URL = "./trained_models"
 MCP_PORT = 8100
 from pathlib import Path

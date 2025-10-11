@@ -107,20 +107,22 @@ class TrainingQueueManager:
         self.running_tasks.clear()
         logger.info("Training queue manager stopped")
     
-    async def submit_task(self, task_type: str, params: Dict[str, Any], 
-                         user_id: Optional[str] = None) -> str:
+    async def submit_task(self, task_type: str, params: Dict[str, Any],
+                         user_id: Optional[str] = None, model_id: Optional[str] = None) -> str:
         """
         Submit a new training task to the queue.
-        
+
         Args:
             task_type: Type of training task ('regression' or 'classification')
             params: Parameters for the training task
             user_id: Optional user identifier for tracking
-            
+            model_id: Optional model ID to use as task ID (if None, generates UUID)
+
         Returns:
-            Task ID for tracking
+            Task ID (same as model_id) for tracking
         """
-        task_id = str(uuid.uuid4())
+        # Use provided model_id as task_id, or generate new UUID
+        task_id = model_id if model_id else str(uuid.uuid4())
         
         task = TrainingTask(
             task_id=task_id,

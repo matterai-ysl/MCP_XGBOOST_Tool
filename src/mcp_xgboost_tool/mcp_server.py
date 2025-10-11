@@ -77,10 +77,10 @@ mcp = FastMCP(
     name="XGBoost Machine Learning Tool",
     instructions="""
     This is a comprehensive Machine Learning server providing advanced XGBoost capabilities with concurrent training support.
-    
+
     Available tools:
-    1. train_xgboost_regressor - Submit XGBoost regression training task to queue (returns task_id for monitoring)
-    2. train_xgboost_classifier - Submit XGBoost classification training task to queue (returns task_id for monitoring)
+    1. train_xgboost_regressor - Submit XGBoost regression training task to queue (returns model_id)
+    2. train_xgboost_classifier - Submit XGBoost classification training task to queue (returns model_id)
     3. predict_from_file - Make batch predictions from a data file
     4. predict_from_values - Make real-time predictions from feature values
     5. analyze_global_feature_importance - Analyze global feature importance with advanced visualizations
@@ -88,20 +88,20 @@ mcp = FastMCP(
     7. list_models - List all available trained models
     8. get_model_info - Get detailed information about a specific model
     9. delete_model - Delete a trained model
-    10. get_task_status - Get the status of a training task by task_id
-    11. get_training_results - Get detailed training results for a completed task
-    12. list_training_tasks - List all training tasks with their status
-    13. get_queue_status - Get overall training queue status
-    14. cancel_training_task - Cancel a training task by task_id
-    
+    10. get_training_results - Get training results and status using model_id
+    11. list_training_tasks - List all training tasks with their status
+    12. get_queue_status - Get overall training queue status
+    13. cancel_training_task - Cancel a training task using model_id
+
     Training Workflow:
     1. Submit training task using train_xgboost_regressor or train_xgboost_classifier
-    2. Receive task_id and queue information immediately (non-blocking)
-    3. Monitor progress using get_task_status with the task_id
-    4. Once completed, use get_training_results for detailed training information
-    5. Access trained model files and use other analysis tools
-    
+    2. Receive model_id and queue information immediately (non-blocking)
+    3. Monitor progress using get_training_results with the model_id
+    4. Once completed, get_training_results returns full training details
+    5. Use the same model_id to access predictions and analysis tools
+
     Key Features:
+    - Unified ID system: model_id serves as both task ID and model identifier
     - Concurrent training support - multiple users can train simultaneously
     - Task queue management with status tracking
     - XGBoost gradient boosting with GPU acceleration
@@ -264,26 +264,27 @@ async def train_xgboost_regressor(
             'models_dir': user_models_dir,  # User-specific models directory
         }
         
-        # Submit to queue
-        task_id = await queue_manager.submit_task(
+        # Submit to queue with model_id as task_id
+        model_id_returned = await queue_manager.submit_task(
             task_type="regression",
             params=task_params,
-            user_id=user_id  # Can be added as parameter if needed
+            user_id=user_id,
+            model_id=model_id  # Use model_id as task_id
         )
-        
+
         # Get queue status
         queue_status = await queue_manager.get_queue_status()
-        
+
         result = {
             "status": "submitted",
-            "task_id": task_id,
-            "model_id": model_id,
+            "model_id": model_id_returned,  # Unified ID for both task and model
             "message": "Regression training task submitted to queue",
             "queue_info": {
                 "position_in_queue": queue_status.get("queued_tasks", 0),
                 "running_tasks": queue_status.get("running_tasks", 0),
                 "max_concurrent": queue_status.get("max_concurrent_tasks", 3)
-            }
+            },
+            "usage_note": "Use this model_id to check training status and access the trained model"
         }
         
         logger.info("XGBoost regression training completed successfully")
@@ -397,26 +398,27 @@ async def train_xgboost_classifier(
             'models_dir': user_models_dir,  # User-specific models directory
         }
         
-        # Submit to queue
-        task_id = await queue_manager.submit_task(
+        # Submit to queue with model_id as task_id
+        model_id_returned = await queue_manager.submit_task(
             task_type="classification",
             params=task_params,
-            user_id=None  # Can be added as parameter if needed
+            user_id=user_id,
+            model_id=model_id  # Use model_id as task_id
         )
-        
+
         # Get queue status
         queue_status = await queue_manager.get_queue_status()
-        
+
         result = {
             "status": "submitted",
-            "task_id": task_id,
-            "model_id": model_id,
+            "model_id": model_id_returned,  # Unified ID for both task and model
             "message": "Classification training task submitted to queue",
             "queue_info": {
                 "position_in_queue": queue_status.get("queued_tasks", 0),
                 "running_tasks": queue_status.get("running_tasks", 0),
                 "max_concurrent": queue_status.get("max_concurrent_tasks", 3)
-            }
+            },
+            "usage_note": "Use this model_id to check training status and access the trained model"
         }
         
         logger.info("XGBoost classification training completed successfully")
@@ -1607,71 +1609,72 @@ async def get_queue_status() -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 @mcp.tool()
-async def cancel_training_task(task_id: str) -> Dict[str, Any]:
+async def cancel_training_task(model_id: str) -> Dict[str, Any]:
     """
-    Cancel a training task.
-    
+    Cancel a training task using model_id.
+
     Args:
-        task_id: ID of the task to cancel
-        
+        model_id: The model ID (same as task ID) to cancel training
+
     Returns:
         Cancellation result
     """
     try:
         queue_manager = get_queue_manager()
-        cancelled = await queue_manager.cancel_task(task_id)
-        
+        cancelled = await queue_manager.cancel_task(model_id)
+
         if cancelled:
             return {
                 "status": "success",
-                "message": f"Task {task_id} cancelled successfully"
+                "message": f"Training for model {model_id} cancelled successfully"
             }
         else:
             return {
-                "status": "error", 
-                "message": f"Could not cancel task {task_id} - may not exist or already completed"
+                "status": "error",
+                "message": f"Could not cancel training for model {model_id} - may not exist or already completed"
             }
-        
+
     except Exception as e:
-        logger.error(f"Failed to cancel task: {str(e)}")
+        logger.error(f"Failed to cancel training: {str(e)}")
         return {"status": "error", "message": str(e)}
 
 @mcp.tool()
-async def get_training_results(task_id: str) -> Dict[str, Any]:
+async def get_training_results(model_id: str) -> Dict[str, Any]:
     """
-    Get training results and task status.
-    
+    Get training results and task status using model_id.
+
     Args:
-        task_id: ID of the task to check
-        
+        model_id: The model ID (same as task ID) to check training status and results
+
     Returns:
-        Task status and training results (if completed)
+        Training status and results (if completed)
     """
     try:
         queue_manager = get_queue_manager()
-        task_status = await queue_manager.get_task_status(task_id)
-        
+        task_status = await queue_manager.get_task_status(model_id)
+
         if not task_status:
-            return {"status": "error", "message": f"Task {task_id} not found"}
-            
+            return {"status": "error", "message": f"Training task for model {model_id} not found"}
+
         # For completed tasks with results, return the complete task result directly
         if task_status["status"] == "completed" and task_status.get("result"):
             # Return the original result without re-packaging to avoid losing information
             return {
                 "status": "success",
-                "task_status": task_status["status"],
-                "task_id": task_id,
+                "training_status": task_status["status"],
+                "model_id": model_id,
                 "completed_at": task_status.get("completed_at"),
                 **serialize_for_json(task_status["result"])  # Unpack all result data directly
             }
         else:
             # For non-completed tasks, return basic status info
             return {
-                "status": "success", 
-                "task_status": task_status["status"],
-                "message": f"Task is {task_status['status']}" + (f" - {task_status.get('error', '')}" if task_status.get('error') else "")
+                "status": "success",
+                "training_status": task_status["status"],
+                "model_id": model_id,
+                "message": f"Training is {task_status['status']}" + (f" - {task_status.get('error', '')}" if task_status.get('error') else "")
             }
-        
+
     except Exception as e:
         logger.error(f"Failed to get training results: {str(e)}")
         return {"status": "error", "message": str(e)}

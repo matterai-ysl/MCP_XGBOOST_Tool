@@ -78,30 +78,30 @@ The codebase follows a modular architecture centered around XGBoost ML capabilit
 
 ## MCP Tools Available
 
-The server provides 13 core MCP tools:
+The server provides 13 core MCP tools with **unified model_id system**:
 
 ### Training Tools (Queue-based)
-1. **`train_xgboost_regressor`** - Submit XGBoost regression training task to queue (returns task_id)
-2. **`train_xgboost_classifier`** - Submit XGBoost classification training task to queue (returns task_id)
+1. **`train_xgboost_regressor`** - Submit XGBoost regression training task to queue (returns model_id)
+2. **`train_xgboost_classifier`** - Submit XGBoost classification training task to queue (returns model_id)
 
 ### Prediction Tools
-3. **`predict_from_file`** - Batch predictions from CSV files
-4. **`predict_from_values`** - Real-time predictions from input values
+3. **`predict_from_file`** - Batch predictions from CSV files (uses model_id)
+4. **`predict_from_values`** - Real-time predictions from input values (uses model_id)
 
 ### Analysis Tools
-5. **`analyze_global_feature_importance`** - Global feature importance analysis
-6. **`analyze_local_feature_importance`** - Local feature importance (SHAP/LIME)
+5. **`analyze_global_feature_importance`** - Global feature importance analysis (uses model_id)
+6. **`analyze_local_feature_importance`** - Local feature importance (SHAP/LIME) (uses model_id)
 
 ### Model Management Tools
 7. **`list_models`** - List all trained models with metadata
-8. **`get_model_info`** - Detailed model information and statistics
-9. **`delete_model`** - Remove trained models and associated files
+8. **`get_model_info`** - Detailed model information and statistics (uses model_id)
+9. **`delete_model`** - Remove trained models and associated files (uses model_id)
 
 ### Queue Management Tools
-10. **`get_training_results`** - Get training results and task status (unified tool)
+10. **`get_training_results`** - Get training results and status using model_id (unified tool)
 11. **`list_training_tasks`** - List all training tasks with their status
 12. **`get_queue_status`** - Get overall training queue status
-13. **`cancel_training_task`** - Cancel a training task by task_id
+13. **`cancel_training_task`** - Cancel a training task using model_id
 
 ## File Structure
 
@@ -193,7 +193,7 @@ pytest tests/ -v
 
 ## Training Workflow (Queue-Based)
 
-The training tools now use an asynchronous queue-based approach for better concurrency:
+The training tools now use an asynchronous queue-based approach with **unified ID system** for better clarity and concurrency:
 
 ### 1. Submit Training Task
 ```python
@@ -206,31 +206,32 @@ result = await mcp_client.call_tool("train_xgboost_regressor", {
     "cv_folds": 5
 })
 
-# Returns immediately with task_id
-task_id = result["task_id"]
-model_id = result["model_id"]
+# Returns immediately with unified model_id
+model_id = result["model_id"]  # One ID for both training task and model
+print(result["usage_note"])  # Guidance on using the model_id
 ```
 
 ### 2. Monitor Progress and Get Results
 ```python
-# Check task status and get results (unified tool)
+# Check training status and get results using model_id (unified tool)
 result = await mcp_client.call_tool("get_training_results", {
-    "task_id": task_id
+    "model_id": model_id  # Use the same model_id throughout
 })
 
 # For running/queued tasks
-if result['task_status'] in ['queued', 'running']:
-    print(f"Task status: {result['task_status']}")
+if result['training_status'] in ['queued', 'running']:
+    print(f"Training status: {result['training_status']}")
+    print(f"Model ID: {result['model_id']}")
 
 # For completed tasks - all training data is directly available
-if result['task_status'] == 'completed':
+if result['training_status'] == 'completed':
     print(f"Model ID: {result['model_id']}")
     print(f"Performance: {result['performance_summary']}")
     print(f"Training time: {result['training_time_seconds']}s")
-    
+
     # Direct access to all training results without re-packaging
     feature_importance = result['feature_importance']
-    cv_results = result['cross_validation_results'] 
+    cv_results = result['cross_validation_results']
     optimization_results = result['optimization_results']
     model_params = result['model_params']
     metadata = result['metadata']
@@ -246,25 +247,32 @@ print(f"Running tasks: {queue_status['queue']['running_tasks']}")
 tasks = await mcp_client.call_tool("list_training_tasks", {})
 print(f"Total tasks: {tasks['count']}")
 
-# Cancel a task if needed
+# Cancel a training task using model_id
 cancel_result = await mcp_client.call_tool("cancel_training_task", {
-    "task_id": task_id
+    "model_id": model_id  # Use model_id to cancel
 })
 
-# Check any task status and results with unified tool
-task_results = await mcp_client.call_tool("get_training_results", {
-    "task_id": some_task_id
+# Check training status and results with unified tool
+training_results = await mcp_client.call_tool("get_training_results", {
+    "model_id": model_id  # Same model_id throughout the workflow
 })
 ```
 
+### Key Benefits of Unified ID System
+- **Simpler for LLMs**: Only one ID to track instead of separate task_id and model_id
+- **Intuitive workflow**: The same model_id is used from submission through prediction
+- **Clear lifecycle**: model_id represents the model from training queue to deployment
+- **Reduced confusion**: No need to remember which ID to use for which operation
+
 ## Concurrency Features
 
-- **Non-blocking Training**: Training requests return immediately with task_id
+- **Non-blocking Training**: Training requests return immediately with model_id
 - **Concurrent Processing**: Multiple users can train models simultaneously
 - **Resource Control**: Configurable maximum concurrent tasks (default: 3)
 - **Queue Management**: Tasks are queued and processed in order
-- **Status Tracking**: Real-time task status and progress monitoring
-- **Task Cancellation**: Cancel long-running tasks if needed
+- **Status Tracking**: Real-time training status and progress monitoring using model_id
+- **Task Cancellation**: Cancel long-running tasks using model_id
+- **Unified ID System**: Single model_id serves as both task identifier and model identifier
 
 ## Dependencies
 

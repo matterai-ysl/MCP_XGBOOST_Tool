@@ -440,10 +440,10 @@ async def predict_from_file_xgbost(
     ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
-    Make batch predictions from a data file.
+    Make batch predictions from a data file using XGBoost model.
     
     Args:
-        model_id: Unique identifier for the trained model
+        model_id: Unique identifier for the trained XGBoost model
         data_source: Path to prediction data file (CSV, Excel, etc.)
         output_path: Path to save prediction results (if None, uses default)
         include_confidence: Whether to include confidence scores
@@ -498,14 +498,14 @@ async def predict_from_values_xgboost(
     ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
-    Make real-time predictions from feature values with CSV export and reporting.
+    Make real-time predictions from feature values with CSV export and reporting using XGBoost model.
     
     Supports both single and batch predictions:
     - Single: [1, 2, 3] or {'feature1': 1, 'feature2': 2}
     - Batch: [[1, 2, 3], [4, 5, 6]] or [{'feature1': 1}, {'feature1': 4}]
     
     Args:
-        model_id: Unique identifier for the trained model
+        model_id: Unique identifier for the trained XGBoost model
         feature_values: Feature values in various formats (single or batch)
         feature_names: Names of features (required if feature_values is a list of lists),if not provided, the feature names will be inferred from the model metadata.
         include_confidence: Whether to include confidence scores
@@ -562,10 +562,10 @@ async def analyze_xgboost_global_feature_importance(
     ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
-    Analyze feature importance of a trained model. shap patterns quantify interactions between features
+    Analyze feature importance of a trained XGBoost model. shap patterns quantify interactions between features
     
     Args:
-        model_id: Unique identifier for the trained model
+        model_id: Unique identifier for the trained XGBoost model
         analysis_types: Types of analysis to perform ["basic", "permutation", "shap"], default is ["shap"]
         generate_plots: Whether to generate visualization plots
         generate_report: Whether to generate analysis report
@@ -989,7 +989,7 @@ async def analyze_xgboost_global_feature_importance(
 @mcp.tool()
 async def list_xgboost_models(ctx: Context = None) -> List[Dict[str, Any]]:  # type: ignore
     """
-    List all available trained models for the current user.
+    List all available trained XGBoost models for the current user.
 
     Returns:
         List of model information including IDs, names, and metadata
@@ -1024,10 +1024,10 @@ async def list_xgboost_models(ctx: Context = None) -> List[Dict[str, Any]]:  # t
 @mcp.tool()
 async def get_xgboost_model_info(model_id: str, ctx: Context = None) -> Dict[str, Any]:  # type: ignore
     """
-    Get detailed information about a specific model.
+    Get detailed information about a specific XGBoost model.
 
     Args:
-        model_id: Unique identifier for the model
+        model_id: Unique identifier for the XGBoost model
 
     Returns:
         Detailed model information including performance metrics and metadata
@@ -1062,10 +1062,10 @@ async def get_xgboost_model_info(model_id: str, ctx: Context = None) -> Dict[str
 @mcp.tool()
 async def delete_xgboost_model(model_id: str, ctx: Context = None) -> Dict[str, Any]:  # type: ignore
     """
-    Delete a trained model.
+    Delete a trained XGBoost model.
 
     Args:
-        model_id: Unique identifier for the model to delete
+        model_id: Unique identifier for the XGBoost model to delete
 
     Returns:
         Deletion status and information
@@ -1114,10 +1114,10 @@ async def analyze_xgboost_local_feature_importance(
     ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
-    Analyze local feature importance for individual samples using SHAP.
+    Analyze local feature importance for individual samples using SHAP based on trained XGBoost model.
     
     Args:
-        model_id: Unique identifier for the trained model
+        model_id: Unique identifier for the trained XGBoost model
         sample_data: Sample data to analyze (if None, uses data from data_source)
         data_source: Path to data file - if provided, analyzes ALL samples in the file
         plot_types: Types of plots to generate ["waterfall", "force", "decision"]

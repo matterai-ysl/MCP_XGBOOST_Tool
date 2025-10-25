@@ -1563,9 +1563,9 @@ def _create_analysis_archive(output_dir: Path, analysis_type: str, task_id: str,
 
 
 @mcp.tool()
-async def list_training_tasks(user_id: Optional[str] = None) -> Dict[str, Any]:
+async def list_xgboost_training_tasks(user_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    List all training tasks or tasks for a specific user.
+    List all XGBoost training tasks or tasks for a specific user.
     
     Args:
         user_id: Optional user ID filter
@@ -1588,9 +1588,9 @@ async def list_training_tasks(user_id: Optional[str] = None) -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 @mcp.tool()
-async def get_queue_status() -> Dict[str, Any]:
+async def get_xgboost_queue_status() -> Dict[str, Any]:
     """
-    Get overall training queue status.
+    Get overall XGBoost training queue status.
     
     Returns:
         Queue status information
@@ -1609,9 +1609,9 @@ async def get_queue_status() -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 @mcp.tool()
-async def cancel_training_task(model_id: str) -> Dict[str, Any]:
+async def cancel_xgboost_training_task(model_id: str) -> Dict[str, Any]:
     """
-    Cancel a training task using model_id.
+    Cancel a XGBoost training task using model_id.
 
     Args:
         model_id: The model ID (same as task ID) to cancel training
@@ -1639,9 +1639,9 @@ async def cancel_training_task(model_id: str) -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 @mcp.tool()
-async def get_training_results(model_id: str) -> Dict[str, Any]:
+async def get_xgboost_training_results(model_id: str) -> Dict[str, Any]:
     """
-    Get training results and task status using model_id.
+    Get XGBoost training results and task status using model_id.
 
     Args:
         model_id: The model ID (same as task ID) to check training status and results

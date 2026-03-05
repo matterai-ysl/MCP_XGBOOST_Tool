@@ -1,0 +1,91 @@
+Feature-Target Correlation Analysis
+Target: kiln (classification)
+==================================================
+
+CONTINUOUS FEATURES:
+------------------------------
+SiO2:
+  Method: correlation_ratio
+  Correlation: 0.4954
+  Strength: 0.4954
+
+Al2O3:
+  Method: correlation_ratio
+  Correlation: 0.4570
+  Strength: 0.4570
+
+Fe2O3:
+  Method: correlation_ratio
+  Correlation: 0.4355
+  Strength: 0.4355
+
+Y2O3:
+  Method: correlation_ratio
+  Correlation: 0.4348
+  Strength: 0.4348
+
+MnO:
+  Method: correlation_ratio
+  Correlation: 0.4315
+  Strength: 0.4315
+
+P2O5:
+  Method: correlation_ratio
+  Correlation: 0.3203
+  Strength: 0.3203
+
+SrO:
+  Method: correlation_ratio
+  Correlation: 0.3134
+  Strength: 0.3134
+
+Rb2O:
+  Method: correlation_ratio
+  Correlation: 0.3035
+  Strength: 0.3035
+
+CaO:
+  Method: correlation_ratio
+  Correlation: 0.2962
+  Strength: 0.2962
+
+K2O:
+  Method: correlation_ratio
+  Correlation: 0.2771
+  Strength: 0.2771
+
+ZrO2:
+  Method: correlation_ratio
+  Correlation: 0.2613
+  Strength: 0.2613
+
+TiO2:
+  Method: correlation_ratio
+  Correlation: 0.2337
+  Strength: 0.2337
+
+Na2O:
+  Method: correlation_ratio
+  Correlation: 0.1303
+  Strength: 0.1303
+
+ZnO:
+  Method: correlation_ratio
+  Correlation: 0.0757
+  Strength: 0.0757
+
+PbO2:
+  Method: correlation_ratio
+  Correlation: 0.0633
+  Strength: 0.0633
+
+MgO:
+  Method: correlation_ratio
+  Correlation: 0.0356
+  Strength: 0.0356
+
+CuO:
+  Method: correlation_ratio
+  Correlation: 0.0325
+  Strength: 0.0325
+

@@ -1,0 +1,70 @@
+High Correlation Pairs in Continuous Features (>=0.7):
+============================================================
+MnO <-> autoFE_f_1:
+  Pearson: -0.8261
+  Spearman: -0.9832
+
+Fe2O3 <-> autoFE_f_0:
+  Pearson: -0.9058
+  Spearman: -0.9451
+
+Fe2O3 <-> autoFE_f_9:
+  Pearson: 0.8954
+  Spearman: 0.8437
+
+MnO <-> autoFE_f_7:
+  Pearson: -0.6673
+  Spearman: -0.8731
+
+PbO2 <-> autoFE_f_8:
+  Pearson: 0.8669
+  Spearman: 0.7976
+
+autoFE_f_1 <-> autoFE_f_7:
+  Pearson: 0.8380
+  Spearman: 0.8540
+
+autoFE_f_0 <-> autoFE_f_9:
+  Pearson: -0.8164
+  Spearman: -0.8402
+
+Al2O3 <-> SiO2:
+  Pearson: -0.8174
+  Spearman: -0.7542
+
+K2O <-> autoFE_f_4:
+  Pearson: 0.6180
+  Spearman: 0.8075
+
+ZnO <-> autoFE_f_5:
+  Pearson: 0.7714
+  Spearman: 0.7912
+
+K2O <-> Fe2O3:
+  Pearson: -0.7234
+  Spearman: -0.7787
+
+Fe2O3 <-> autoFE_f_2:
+  Pearson: 0.7402
+  Spearman: 0.7739
+
+K2O <-> SrO:
+  Pearson: 0.7515
+  Spearman: 0.7723
+
+autoFE_f_0 <-> autoFE_f_2:
+  Pearson: -0.7693
+  Spearman: -0.7651
+
+autoFE_f_2 <-> autoFE_f_9:
+  Pearson: 0.6687
+  Spearman: 0.7484
+
+Rb2O <-> autoFE_f_8:
+  Pearson: -0.7184
+  Spearman: -0.7379
+
+K2O <-> Rb2O:
+  Pearson: 0.7138
+  Spearman: 0.6929
+

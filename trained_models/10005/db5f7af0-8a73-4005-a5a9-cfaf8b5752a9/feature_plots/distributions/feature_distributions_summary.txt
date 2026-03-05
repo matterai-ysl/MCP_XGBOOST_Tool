@@ -1,0 +1,79 @@
+FEATURE DISTRIBUTION ANALYSIS SUMMARY
+==================================================
+
+Task Type: Regression
+Target Column(s): relative_density
+Analysis Date: 2025-12-08 19:39:50
+
+CONTINUOUS FEATURES ANALYSIS
+------------------------------
+
+layer_thickness:
+  Count: 2703
+  Mean: 49.7244
+  Std: 18.5874
+  Range: [20.0000, 80.0000]
+  Quartiles: Q1=35.0000, Q2=50.0000, Q3=65.0000
+  Skewness: 0.0214 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+hatch_distance:
+  Count: 2703
+  Mean: 54.7817
+  Std: 15.6629
+  Range: [30.0000, 80.0000]
+  Quartiles: Q1=40.0000, Q2=55.0000, Q3=70.0000
+  Skewness: 0.0330 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+laser_power:
+  Count: 2703
+  Mean: 129.4081
+  Std: 30.4597
+  Range: [80.0000, 180.0000]
+  Quartiles: Q1=102.5000, Q2=130.0000, Q3=155.0000
+  Skewness: 0.0155 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+laser_velocity:
+  Count: 2703
+  Mean: 1651.7203
+  Std: 517.3988
+  Range: [800.0000, 2500.0000]
+  Quartiles: Q1=1200.0000, Q2=1700.0000, Q3=2100.0000
+  Skewness: -0.0308 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+
+RECOMMENDATIONS
+---------------
+1. Consider normality transformations for features that will be used in algorithms assuming normality
+2. Consider normality transformations for features that will be used in algorithms assuming normality
+3. Consider normality transformations for features that will be used in algorithms assuming normality
+4. Consider normality transformations for features that will be used in algorithms assuming normality
+5. For regression tasks, check if target transformation is needed based on feature-target relationships
+6. Consider polynomial features for non-linear relationships

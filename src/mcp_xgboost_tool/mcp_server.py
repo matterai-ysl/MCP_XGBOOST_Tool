@@ -562,8 +562,14 @@ async def analyze_xgboost_global_feature_importance(
     ctx: Context = None  # type: ignore
 ) -> Dict[str, Any]:
     """
-    Analyze feature importance of a trained XGBoost model. shap patterns quantify interactions between features
-    
+    Analyze global feature importance of a trained XGBoost model.
+    When analysis_types includes "shap", also generates raw SHAP interaction
+    heatmaps and dependence plots for ALL feature pairs as a qualitative overview.
+
+    Note: For targeted quantitative decoupling of a SPECIFIC feature pair
+    (synergy/antagonism region extraction with smoothed boundaries), use
+    the dedicated tool `decouple_xgboost_feature_interaction` instead.
+
     Args:
         model_id: Unique identifier for the trained XGBoost model
         analysis_types: Types of analysis to perform ["basic", "permutation", "shap"], default is ["shap"]
@@ -747,9 +753,11 @@ async def analyze_xgboost_global_feature_importance(
                     analyzer = FeatureImportanceAnalyzer(str(output_dir))
                     
                     try:
-                        # Get SHAP values for all targets at once
+                        raw_csv = model_dir / "raw_data.csv"
                         shap_results = analyzer.analyze_shap_importance(
-                            model, X, feature_names,model_id=model_id
+                            model, X, feature_names,
+                            model_id=model_id,
+                            raw_data_path=str(raw_csv) if raw_csv.exists() else None,
                         )
                         
                         # SHAP values shape: (n_samples, n_features, n_targets)
@@ -790,11 +798,29 @@ async def analyze_xgboost_global_feature_importance(
                     main_analyzer = None
                 
             else:
-                # Single target analysis
+                # Single target analysis (includes both regression and classification)
                 results['is_multi_target'] = False
                 
                 # Create analyzer for single target
                 analyzer = FeatureImportanceAnalyzer(str(output_dir))
+                
+                # Detect if this is a classification model and get real class labels
+                is_classifier = hasattr(model, 'predict_proba') or hasattr(model, 'classes_')
+                class_names = None
+                if is_classifier:
+                    # First try to get real labels from model metadata (label_mapping)
+                    label_mapping = model_info.get('label_mapping')
+                    if label_mapping and 'class_to_label' in label_mapping:
+                        # Use real labels from training metadata
+                        class_to_label = label_mapping['class_to_label']
+                        # Sort by class index to ensure correct order
+                        class_names = [str(class_to_label[str(i)] if str(i) in class_to_label else class_to_label.get(i, f"class_{i}")) 
+                                      for i in range(len(class_to_label))]
+                        logger.info(f"Classification model detected with real labels from metadata: {class_names}")
+                    elif hasattr(model, 'classes_'):
+                        # Fallback to model's classes_ attribute
+                        class_names = [str(c) for c in model.classes_]
+                        logger.info(f"Classification model detected with classes from model: {class_names}")
                 
                 # Basic importance analysis
                 if "basic" in analysis_types:
@@ -825,9 +851,25 @@ async def analyze_xgboost_global_feature_importance(
                 if "shap" in analysis_types:
                     logger.info("Performing SHAP feature importance analysis...")
                     try:
-                        results['shap_importance'] = analyzer.analyze_shap_importance(
-                            model, X, feature_names,model_id=model_id
+                        raw_csv = model_dir / "raw_data.csv"
+                        shap_result = analyzer.analyze_shap_importance(
+                            model, X, feature_names,
+                            model_id=model_id,
+                            raw_data_path=str(raw_csv) if raw_csv.exists() else None,
+                            class_names=class_names,
                         )
+                        results['shap_importance'] = shap_result
+                        
+                        # Check if this is multi-class classification with per-class results
+                        if shap_result.get('is_multi_class', False) and shap_result.get('importance_matrix'):
+                            results['is_multi_class'] = True
+                            results['class_names'] = shap_result.get('class_names', [])
+                            results['importance_matrix'] = shap_result.get('importance_matrix')
+                            results['analysis_method'] = "SHAP"
+                            logger.info(f"✓ Multi-class SHAP analysis completed for {len(results['class_names'])} classes")
+                        else:
+                            results['is_multi_class'] = False
+                        
                         logger.info("✓ SHAP importance analysis completed successfully")
                     except Exception as e:
                         logger.warning(f"SHAP analysis failed: {e}")
@@ -840,15 +882,20 @@ async def analyze_xgboost_global_feature_importance(
             if generate_plots and main_analyzer:
                 logger.info("Generating feature importance plots...")
                 try:
-                    if results.get('is_multi_target', False) and results.get('importance_matrix'):
-                        # Use specialized multi-target visualization
+                    # Check if we need multi-output visualization (multi-target OR multi-class)
+                    has_importance_matrix = results.get('importance_matrix') is not None
+                    is_multi_output = results.get('is_multi_target', False) or results.get('is_multi_class', False)
+                    
+                    if is_multi_output and has_importance_matrix:
+                        # Use specialized multi-output visualization (works for both multi-target and multi-class)
                         plot_paths = main_analyzer.create_multi_target_visualizations(
-                            importance_matrix=results['importance_matrix'],
+                            importance_matrix=results['importance_matrix'], # type: ignore
                             save_plots=True
                         )
-                        logger.info("✓ Multi-target visualizations generated successfully")
+                        output_type = "multi-target" if results.get('is_multi_target') else "multi-class"
+                        logger.info(f"✓ {output_type.capitalize()} visualizations generated successfully")
                     else:
-                        # Use standard visualization for single target
+                        # Use standard visualization for single target/class
                         plot_paths = main_analyzer.create_visualization(save_plots=True)
                         logger.info("✓ Single-target visualizations generated successfully")
                 except Exception as e:
@@ -859,17 +906,29 @@ async def analyze_xgboost_global_feature_importance(
             if generate_report and main_analyzer:
                 logger.info("Generating feature importance report...")
                 try:
-                    if results.get('is_multi_target', False) and results.get('importance_matrix'):
-                        # Use specialized multi-target report generation
+                    # Check if we need multi-output report (multi-target OR multi-class)
+                    has_importance_matrix = results.get('importance_matrix') is not None
+                    is_multi_output = results.get('is_multi_target', False) or results.get('is_multi_class', False)
+                    
+                    if is_multi_output and has_importance_matrix:
+                        # Determine task type for report generation
+                        if results.get('is_multi_class', False):
+                            report_task_type = "classification"
+                        else:
+                            report_task_type = "regression"
+                        
+                        # Use specialized multi-output report generation
                         report_path = main_analyzer.generate_multi_target_html_report(
-                            importance_matrix=results['importance_matrix'],
+                            importance_matrix=results['importance_matrix'], # type: ignore
                             plot_paths=plot_paths,
                             analysis_method=results.get('analysis_method', 'SHAP'),
-                            include_plots=generate_plots
+                            include_plots=generate_plots,
+                            task_type=report_task_type
                         )
-                        logger.info("✓ Multi-target HTML report generated successfully")
+                        output_type = "multi-target" if results.get('is_multi_target') else "multi-class"
+                        logger.info(f"✓ {output_type.capitalize()} HTML report generated successfully")
                     else:
-                        # Use standard report generation for single target
+                        # Use standard report generation for single target/class
                         report_path = main_analyzer.generate_report(include_plots=generate_plots, format_type="html")
                         logger.info("✓ Single-target HTML report generated successfully")
                     report_relative_path = get_static_url(report_path)
@@ -912,11 +971,12 @@ async def analyze_xgboost_global_feature_importance(
                 'data_source': data_source if data_source else str(model_dir / "raw_data.csv"),
                 'feature_count': len(feature_names) if feature_names else 0,
                 'data_shape': f"{X.shape[0]} samples, {X.shape[1]} features" if X is not None else "Unknown",
-                'is_multi_target': results.get('is_multi_target', False)
+                'is_multi_target': results.get('is_multi_target', False),
+                'is_multi_class': results.get('is_multi_class', False)
             }
             
             if results.get('is_multi_target', False):
-                # Multi-target results - simplified format
+                # Multi-target regression results - simplified format
                 simplified_results['target_names'] = results.get('target_names', [])
                 
                 # Add simplified SHAP results directly
@@ -928,8 +988,6 @@ async def analyze_xgboost_global_feature_importance(
                     simplified_results['analysis_method'] = results.get('analysis_method')
                     logger.info(f"✓ Analysis method: {results.get('analysis_method')}")
                 
-
-                    
                 if results.get('shap_analysis_error'):
                     simplified_results['shap_analysis_error'] = results['shap_analysis_error']
                     logger.warning(f"Multi-target SHAP analysis error: {results['shap_analysis_error']}")
@@ -942,9 +1000,42 @@ async def analyze_xgboost_global_feature_importance(
                     del simplified_results["analysis_types"]
                     
                 logger.info("✓ Multi-target simplified results processed")
+            
+            elif results.get('is_multi_class', False):
+                # Multi-class classification results - per-class importance
+                simplified_results['class_names'] = results.get('class_names', [])
+                
+                # Add per-class importance matrix
+                if results.get('importance_matrix'):
+                    simplified_results['importance_matrix'] = results.get('importance_matrix')
+                    logger.info(f"✓ Multi-class importance matrix included for {len(results.get('class_names', []))} classes")
+                
+                if results.get('analysis_method'):
+                    simplified_results['analysis_method'] = results.get('analysis_method')
+                    logger.info(f"✓ Analysis method: {results.get('analysis_method')}")
+                
+                # Also include overall importance scores for backward compatibility
+                if results.get('shap_importance'):
+                    simplified_results['shap_importance_scores'] = results['shap_importance'].get('importance_scores', [])
+                    logger.info("✓ Overall SHAP importance scores also included")
+                
+                # Basic and permutation importance (not per-class)
+                if "basic" in analysis_types and results.get('basic_importance'):
+                    simplified_results['basic_importance_scores'] = results['basic_importance'].get('importance_scores', [])
+                    logger.info("✓ Basic importance scores extracted")
+                
+                if "permutation" in analysis_types and results.get('permutation_importance'):
+                    simplified_results['permutation_importance_scores'] = results['permutation_importance'].get('importance_scores', [])
+                    logger.info("✓ Permutation importance scores extracted")
+                
+                # 移除analysis_types字段，用analysis_method替代
+                if "analysis_types" in simplified_results:
+                    del simplified_results["analysis_types"]
+                    
+                logger.info("✓ Multi-class simplified results processed")
                 
             else:
-                # Single target results
+                # Single target/class results
                 # 添加基础重要性分析结果
                 if "basic" in analysis_types and results.get('basic_importance'):
                     simplified_results['basic_importance_scores'] = results['basic_importance'].get('importance_scores', [])
@@ -1532,6 +1623,212 @@ async def analyze_xgboost_local_feature_importance(
             "traceback": full_traceback
         }
 
+
+@mcp.tool()
+async def decouple_xgboost_feature_interaction(
+    model_id: str,
+    feature_1: str,
+    feature_2: str,
+    grid_resolution: int = 30,
+    smoothing_sigma: Optional[float] = None,
+    generate_plots: bool = True,
+    ctx: Context = None  # type: ignore
+) -> Dict[str, Any]:
+    """
+    Decouple the interaction between two specified features of a trained XGBoost model,
+    identifying in which value ranges they exhibit synergy vs antagonism.
+
+    This is different from the SHAP interaction plots in analyze_xgboost_global_feature_importance:
+      - Global SHAP analysis generates raw interaction heatmaps for ALL feature pairs
+        as part of overall feature importance ranking (qualitative overview).
+      - This tool performs targeted decoupling of ONE specific feature pair, using
+        Gaussian kernel smoothing to extract robust synergy/antagonism region
+        boundaries and quantified descriptions (quantitative region analysis).
+
+    Algorithm: SHAP interaction values → 2D binned averaging → Gaussian smoothing
+    → zero-contour boundary extraction → connected-region labeling.
+
+    Args:
+        model_id: Unique identifier for the trained XGBoost model
+        feature_1: Name of the first feature to analyze
+        feature_2: Name of the second feature to analyze
+        grid_resolution: Number of bins along each axis for the 2D grid (default 30)
+        smoothing_sigma: Gaussian smoothing parameter. None = auto (grid_resolution / 10).
+                         Larger values yield broader, more tolerant region boundaries.
+        generate_plots: Whether to generate visualisation plots (heatmap, region map, scatter)
+    Returns:
+        Analysis results including:
+        - regions: list of synergy / antagonism regions with value ranges, intensities,
+          and natural-language descriptions of where the two features cooperate or counteract
+        - raw_interaction_stats: mean, std, min, max of raw SHAP interaction values
+        - plots: paths to generated visualisation images
+        - download_archive_path: URL to download all analysis artifacts
+    """
+    try:
+        if ctx is not None:
+            user_id = ctx.request_context.request.headers.get("user_id", None)  # type: ignore
+        else:
+            user_id = None
+
+        logger.info(f"Decoupling feature interaction ({feature_1} × {feature_2}) for model {model_id}")
+
+        user_models_dir = get_user_models_dir(user_id)
+        user_model_manager = ModelManager(user_models_dir)
+        model_info = user_model_manager.get_model_info(model_id)
+
+        def run_analysis():
+            model = user_model_manager.load_model(model_id)
+
+            model_dir = Path(user_models_dir) / model_id
+            task_id = str(uuid.uuid4())
+            output_dir = model_dir / "feature_analysis" / "interaction_decoupling" / task_id
+            output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Interaction decoupling output directory: {output_dir}")
+
+            # --- Load data (same pattern as global feature importance) ---
+            processed_data_path = model_dir / "processed_data" / "processed_data.csv"
+            if processed_data_path.exists():
+                df = pd.read_csv(processed_data_path)
+                logger.info(f"Using processed training data: {processed_data_path}")
+                use_preprocessing = False
+            else:
+                raw_data_path = model_dir / "raw_data.csv"
+                if raw_data_path.exists():
+                    df = pd.read_csv(raw_data_path)
+                    logger.info(f"Using raw training data: {raw_data_path}")
+                    use_preprocessing = True
+                else:
+                    raise FileNotFoundError(
+                        f"No training data found. Looked for: {processed_data_path} and {raw_data_path}"
+                    )
+
+            # --- Resolve target column ---
+            target_column = model_info.get("target_column")
+            if not target_column:
+                target_name = model_info.get("target_name", [])
+                if target_name:
+                    target_column = target_name[0] if isinstance(target_name, list) else target_name
+                else:
+                    target_column = df.columns[-1]
+
+            if isinstance(target_column, list):
+                X_raw = df.drop(columns=target_column)  # type: ignore
+            else:
+                X_raw = df.drop(columns=[target_column])  # type: ignore
+
+            # --- Apply preprocessing if needed ---
+            if use_preprocessing:
+                preprocessing_pipeline_path = model_dir / "preprocessing_pipeline.pkl"
+                if preprocessing_pipeline_path.exists():
+                    try:
+                        from .data_preprocessing import DataPreprocessor
+                        preprocessor = DataPreprocessor()
+                        preprocessor.load_pipeline(str(preprocessing_pipeline_path))
+                        X = preprocessor.transform_features(X_raw)
+                        feature_names = preprocessor.get_feature_names()
+                        if not feature_names or len(feature_names) != X.shape[1]:
+                            feature_names = [f"feature_{i}" for i in range(X.shape[1])]
+                    except Exception as e:
+                        logger.warning(f"Preprocessing failed: {e}, using raw data")
+                        X = X_raw.values if hasattr(X_raw, "values") else X_raw
+                        feature_names = X_raw.columns.tolist() if hasattr(X_raw, "columns") else [f"feature_{i}" for i in range(X.shape[1])]
+                else:
+                    X = X_raw.values if hasattr(X_raw, "values") else X_raw
+                    feature_names = X_raw.columns.tolist() if hasattr(X_raw, "columns") else [f"feature_{i}" for i in range(X.shape[1])]
+            else:
+                X = X_raw.values if hasattr(X_raw, "values") else X_raw
+                feature_names = X_raw.columns.tolist() if hasattr(X_raw, "columns") else [f"feature_{i}" for i in range(X.shape[1])]
+
+            if hasattr(X, "values"):
+                X = X.values  # type: ignore
+            if not isinstance(X, np.ndarray):
+                X = np.array(X)
+
+            # --- Load raw display data for axis labels ---
+            X_display = None
+            raw_data_csv = model_dir / "raw_data.csv"
+            if raw_data_csv.exists():
+                try:
+                    raw_df = pd.read_csv(raw_data_csv)
+                    if isinstance(target_column, list):
+                        raw_features = raw_df.drop(columns=[c for c in target_column if c in raw_df.columns])  # type: ignore
+                    else:
+                        raw_features = raw_df.drop(columns=[target_column]) if target_column in raw_df.columns else raw_df  # type: ignore
+                    X_display = raw_features.values
+                except Exception as e:
+                    logger.warning(f"Could not load raw display data: {e}")
+
+            # --- Run interaction analysis ---
+            from .feature_interaction_analyzer import FeatureInteractionAnalyzer
+
+            analyzer = FeatureInteractionAnalyzer(output_dir=str(output_dir))
+            results = analyzer.analyze_interaction(
+                model=model,
+                X=X,
+                feature_names=feature_names,
+                feature_1=feature_1,
+                feature_2=feature_2,
+                X_display=X_display,
+                grid_resolution=grid_resolution,
+                smoothing_sigma=smoothing_sigma,
+                generate_plots=generate_plots,
+            )
+
+            if "error" in results:
+                return results
+
+            # --- Convert plot paths to static download URLs ---
+            if results.get("plots"):
+                results["plot_urls"] = [get_static_url(p) for p in results["plots"]]
+
+            # --- Convert report path to static download URL ---
+            if results.get("report_path"):
+                report_url = get_static_url(results["report_path"])
+                results["report_url"] = (
+                    f"You can view the interaction decoupling HTML report at {report_url}"
+                )
+
+            # --- Archive all results ---
+            try:
+                archive_path = _create_analysis_archive(
+                    output_dir=output_dir,
+                    analysis_type="interaction_decoupling",
+                    task_id=task_id,
+                    model_id=model_id,
+                    user_models_dir=user_models_dir,
+                )
+                if archive_path:
+                    results["download_archive_path"] = (
+                        f"You can download all interaction decoupling analysis files in "
+                        f"{get_download_url(archive_path)}"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to archive interaction decoupling analysis: {e}")
+
+            results["model_id"] = model_id
+            return results
+
+        result = await asyncio.get_event_loop().run_in_executor(None, run_analysis)
+
+        return {
+            "status": "success",
+            "message": (
+                f"Interaction decoupling analysis completed for {feature_1} × {feature_2} "
+                f"on model {model_id}"
+            ),
+            "results": serialize_for_json(result),
+        }
+
+    except Exception as e:
+        full_traceback = traceback.format_exc()
+        logger.error(f"Interaction decoupling analysis failed: {str(e)}")
+        logger.error(full_traceback)
+        return {
+            "status": "error",
+            "message": f"Failed to decouple feature interaction: {str(e)}",
+            "error_details": str(e),
+            "traceback": full_traceback,
+        }
 
 
 def _create_analysis_archive(output_dir: Path, analysis_type: str, task_id: str, model_id: str, user_models_dir: str) -> str:

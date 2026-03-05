@@ -1,0 +1,210 @@
+{
+  "Na2O": {
+    "weight": 14.0,
+    "gain": 1.0000919103622437,
+    "cover": 27.274829864501953,
+    "sklearn_gain": 0.013746817596256733,
+    "permutation_mean": 0.002877697841726601,
+    "permutation_std": 0.003524445673069299
+  },
+  "MgO": {
+    "weight": 25.0,
+    "gain": 1.067779541015625,
+    "cover": 22.44027328491211,
+    "sklearn_gain": 0.01467722188681364,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.004550039798803395
+  },
+  "Al2O3": {
+    "weight": 47.0,
+    "gain": 7.774116039276123,
+    "cover": 29.176372528076172,
+    "sklearn_gain": 0.10685953497886658,
+    "permutation_mean": 0.02014388489208634,
+    "permutation_std": 0.005383679693199918
+  },
+  "SiO2": {
+    "weight": 19.0,
+    "gain": 2.003908157348633,
+    "cover": 26.415786743164062,
+    "sklearn_gain": 0.02754482813179493,
+    "permutation_mean": 0.002877697841726601,
+    "permutation_std": 0.003524445673069299
+  },
+  "K2O": {
+    "weight": 25.0,
+    "gain": 1.9310579299926758,
+    "cover": 26.528982162475586,
+    "sklearn_gain": 0.02654346264898777,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.004550039798803395
+  },
+  "Fe2O3": {
+    "weight": 30.0,
+    "gain": 1.9315972328186035,
+    "cover": 34.514915466308594,
+    "sklearn_gain": 0.02655087597668171,
+    "permutation_mean": 0.024460431654676262,
+    "permutation_std": 0.019088488002045458
+  },
+  "As2O3": {
+    "weight": 2.0,
+    "gain": 1.4368062019348145,
+    "cover": 34.74754333496094,
+    "sklearn_gain": 0.019749697297811508,
+    "permutation_mean": 0.002877697841726601,
+    "permutation_std": 0.0035244456730692993
+  },
+  "MnO": {
+    "weight": 5.0,
+    "gain": 1.0333162546157837,
+    "cover": 21.41598129272461,
+    "sklearn_gain": 0.014203504659235477,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "CuO": {
+    "weight": 0.0,
+    "gain": 0.0,
+    "cover": 0.0,
+    "sklearn_gain": 0.0,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "ZnO": {
+    "weight": 12.0,
+    "gain": 1.4632574319839478,
+    "cover": 22.506559371948242,
+    "sklearn_gain": 0.02011328563094139,
+    "permutation_mean": 0.002877697841726601,
+    "permutation_std": 0.003524445673069299
+  },
+  "PbO2": {
+    "weight": 28.0,
+    "gain": 1.894948959350586,
+    "cover": 30.11527442932129,
+    "sklearn_gain": 0.026047123596072197,
+    "permutation_mean": 0.010071942446043147,
+    "permutation_std": 0.0035244456730693535
+  },
+  "Rb2O": {
+    "weight": 3.0,
+    "gain": 0.702497661113739,
+    "cover": 23.5264835357666,
+    "sklearn_gain": 0.009656219743192196,
+    "permutation_mean": 0.004316546762589901,
+    "permutation_std": 0.0035244456730692993
+  },
+  "SrO": {
+    "weight": 5.0,
+    "gain": 0.9236747026443481,
+    "cover": 22.00440788269043,
+    "sklearn_gain": 0.012696420773863792,
+    "permutation_mean": 0.0014388489208633005,
+    "permutation_std": 0.002877697841726601
+  },
+  "Y2O3": {
+    "weight": 23.0,
+    "gain": 6.30775785446167,
+    "cover": 35.211097717285156,
+    "sklearn_gain": 0.08670362830162048,
+    "permutation_mean": 0.007194244604316525,
+    "permutation_std": 0.00455003979880343
+  },
+  "ZrO2": {
+    "weight": 45.0,
+    "gain": 3.814058780670166,
+    "cover": 26.937488555908203,
+    "sklearn_gain": 0.052426353096961975,
+    "permutation_mean": 0.004316546762589924,
+    "permutation_std": 0.00733671872459392
+  },
+  "P2O5": {
+    "weight": 12.0,
+    "gain": 1.3586095571517944,
+    "cover": 25.181089401245117,
+    "sklearn_gain": 0.01867484115064144,
+    "permutation_mean": 0.002877697841726601,
+    "permutation_std": 0.0035244456730692993
+  },
+  "autoFE_f_0": {
+    "weight": 76.0,
+    "gain": 5.53641939163208,
+    "cover": 35.1067008972168,
+    "sklearn_gain": 0.076101154088974,
+    "permutation_mean": 0.07338129496402876,
+    "permutation_std": 0.016022343490158356
+  },
+  "autoFE_f_1": {
+    "weight": 22.0,
+    "gain": 5.005570888519287,
+    "cover": 26.458208084106445,
+    "sklearn_gain": 0.06880434602499008,
+    "permutation_mean": 0.007194244604316525,
+    "permutation_std": 0.00455003979880343
+  },
+  "autoFE_f_2": {
+    "weight": 63.0,
+    "gain": 4.293759822845459,
+    "cover": 34.22750473022461,
+    "sklearn_gain": 0.059020109474658966,
+    "permutation_mean": 0.0964028776978417,
+    "permutation_std": 0.028268895977537425
+  },
+  "autoFE_f_3": {
+    "weight": 42.0,
+    "gain": 2.30598521232605,
+    "cover": 29.934720993041992,
+    "sklearn_gain": 0.031697046011686325,
+    "permutation_mean": 0.054676258992805774,
+    "permutation_std": 0.012543594082131439
+  },
+  "autoFE_f_4": {
+    "weight": 39.0,
+    "gain": 1.805806040763855,
+    "cover": 27.71761703491211,
+    "sklearn_gain": 0.024821804836392403,
+    "permutation_mean": 0.01294964028776977,
+    "permutation_std": 0.00538367969319993
+  },
+  "autoFE_f_5": {
+    "weight": 67.0,
+    "gain": 5.748128890991211,
+    "cover": 29.07785415649414,
+    "sklearn_gain": 0.0790112167596817,
+    "permutation_mean": 0.037410071942446034,
+    "permutation_std": 0.013187268186923297
+  },
+  "autoFE_f_6": {
+    "weight": 37.0,
+    "gain": 2.3860745429992676,
+    "cover": 28.320587158203125,
+    "sklearn_gain": 0.0327979177236557,
+    "permutation_mean": 0.043165467625899276,
+    "permutation_std": 0.012038273763080228
+  },
+  "autoFE_f_7": {
+    "weight": 35.0,
+    "gain": 5.154491424560547,
+    "cover": 24.920730590820312,
+    "sklearn_gain": 0.07085134088993073,
+    "permutation_mean": 0.005755395683453224,
+    "permutation_std": 0.005383679693199918
+  },
+  "autoFE_f_8": {
+    "weight": 56.0,
+    "gain": 2.8012797832489014,
+    "cover": 28.913095474243164,
+    "sklearn_gain": 0.03850514441728592,
+    "permutation_mean": 0.04460431654676258,
+    "permutation_std": 0.008389858841504026
+  },
+  "autoFE_f_9": {
+    "weight": 77.0,
+    "gain": 3.06980037689209,
+    "cover": 33.45443344116211,
+    "sklearn_gain": 0.042196109890937805,
+    "permutation_mean": 0.05899280575539569,
+    "permutation_std": 0.008389858841504066
+  }
+}

@@ -1,0 +1,10 @@
+Feature-Target Association Analysis
+Target: kiln (classification)
+==================================================
+
+CATEGORICAL FEATURES:
+------------------------------
+As2O3:
+  Method: cramers_v
+  Association: 0.1705
+

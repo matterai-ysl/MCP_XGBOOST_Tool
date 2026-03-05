@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an XGBoost MCP Tool - a comprehensive machine learning server that provides XGBoost capabilities through the MCP (Model Context Protocol). The project implements a FastMCP-based server with advanced XGBoost functionality for regression and classification tasks.
+This is an XGBoost MCP Tool - a comprehensive machine learning server that provides XGBoost capabilities through the MCP (Model Context Protocol). The project implements a FastMCP-based server with advanced XGBoost functionality for regression and classification tasks, supporting multi-user isolation, asynchronous queue-based training, and multiple transport modes (stdio, streamable-http, SSE).
 
 ## Essential Commands
 
@@ -13,13 +13,17 @@ This is an XGBoost MCP Tool - a comprehensive machine learning server that provi
 # Install dependencies
 uv pip install -r requirements.txt
 
-# Run the main MCP server (standard MCP protocol)
+# Run the main MCP server (stdio transport)
 python -m src.mcp_xgboost_tool
 
-# Run the single port server (HTTP + MCP combined)
+# Run the single port server (streamable-http + file APIs)
 python single_port_server.py --host 0.0.0.0 --port 8100
 
-# Run tests
+# Run the FastAPI server (stdio or SSE mode)
+python run_mcp_server_fastapi.py --mode stdio
+python run_mcp_server_fastapi.py --mode sse --port 8100
+
+# Run tests (note: test suite not yet implemented)
 pytest
 
 # Type checking (if mypy is installed)
@@ -28,88 +32,143 @@ mypy src/
 
 ### Server Modes
 
-The project supports two server modes:
+The project supports three server entry points:
 
-1. **Standard MCP Server**: Traditional MCP protocol server (`python -m src.mcp_xgboost_tool`)
-2. **Single Port Server**: HTTP + MCP combined server (`python single_port_server.py`)
+| Entry Point | Command | Transport |
+|-------------|---------|-----------|
+| Package main | `python -m src.mcp_xgboost_tool` | MCP stdio (`mcp.stdio.stdio_server`) |
+| Single-port server | `python single_port_server.py` | Streamable HTTP at `/mcp` + file APIs |
+| FastAPI (SSE) | `python run_mcp_server_fastapi.py --mode sse` | SSE at `/sse` |
+| FastAPI (stdio) | `python run_mcp_server_fastapi.py --mode stdio` | FastMCP stdio |
 
-The single port server provides:
-- MCP endpoint: `http://localhost:8100/mcp`
-- File download API: `http://localhost:8100/api/download/file/{path}`
-- Static file serving: `http://localhost:8100/static/{path}`
-- Health checks: `http://localhost:8100/api/health`
+**Single-port server endpoints:**
+
+| Path | Purpose |
+|------|---------|
+| `/mcp` | MCP streamable-http endpoint |
+| `/api/health` | Health check |
+| `/api/info` | Server info |
+| `/api/models/list` | List model files |
+| `/api/download/file/{path}` | Download file |
+| `/download/file/{path}` | Download file (alias) |
+| `/static` | Static files from `trained_models/` |
+| `/static/model` | Alias for static models |
+| `/static/reports` | Static files from `reports/` |
 
 ## Core Architecture
 
 ### Key Components
 
-The codebase follows a modular architecture centered around XGBoost ML capabilities:
+The codebase follows a modular architecture centered around XGBoost ML capabilities (~30k lines of Python):
 
-- **`mcp_server.py`**: Main MCP server implementation using FastMCP
-- **`xgboost_wrapper.py`**: Core XGBoost algorithm wrapper with enhanced functionality
-- **`training.py`**: Training engine for model creation and management
-- **`prediction.py`**: Prediction engine for batch and real-time predictions  
-- **`feature_importance.py`**: Global feature importance analysis
-- **`local_feature_importance.py`**: Local/instance-level feature importance (SHAP, LIME)
-- **`hyperparameter_optimizer.py`**: Optuna-based hyperparameter optimization
-- **`model_manager.py`**: Model persistence and lifecycle management
+- **`mcp_server.py`**: Main MCP server implementation using FastMCP; defines all 14 tools
+- **`xgboost_wrapper.py`** (964 lines): Core XGBoost algorithm wrapper for regression/classification with CV integration
+- **`training.py`** (1,223 lines): Training engine with hyperparameter tuning and report generation
+- **`prediction.py`** (2,264 lines): Batch and real-time prediction with report generation
+- **`feature_importance.py`** (2,029 lines): Global feature importance (tree, permutation, SHAP)
+- **`local_feature_importance.py`** (2,988 lines): Local/instance-level feature importance (SHAP waterfall, force, decision plots)
+- **`feature_interaction_analyzer.py`**: Feature interaction decoupling — targeted synergy/antagonism region extraction with Gaussian smoothing (distinct from global SHAP interaction heatmaps)
+- **`hyperparameter_optimizer.py`** (436 lines): Optuna-based hyperparameter optimization (TPE/GP)
+- **`model_manager.py`** (361 lines): Model persistence, metadata, and lifecycle management
+- **`training_queue.py`** (381 lines): Async queue manager for concurrent training tasks
 
 ### Data Processing Pipeline
 
-- **`data_preprocessing.py`**: Data cleaning and feature engineering
-- **`data_validator.py`**: Input validation and data quality checks
-- **`data_utils.py`**: Common data manipulation utilities
-- **`cross_validation.py`**: Cross-validation strategies and evaluation
+- **`data_preprocessing.py`** (574 lines): Preprocessing pipeline (scaling, imputation, encoding)
+- **`data_validator.py`** (2,716 lines): Data validation, integrity checks, leakage detection, quality scoring
+- **`data_utils.py`** (585 lines): Data loading, encoding detection, validation utilities
+- **`cross_validation.py`** (977 lines): Cross-validation with StratifiedKFold/KFold
 
 ### Analysis & Reporting
 
-- **`html_report_generator.py`**: Comprehensive HTML report generation
-- **`academic_report_generator.py`**: Academic-style analysis reports
-- **`visualization_generator.py`**: Chart and plot generation
-- **`metrics_evaluator.py`**: Model performance metrics calculation
-- **`performance_analysis.py`**: Detailed performance analysis tools
+- **`html_report_generator.py`** (3,878 lines): Comprehensive HTML and JSON report generation
+- **`academic_report_generator.py`** (2,920 lines): Academic-style analysis reports (validation, hyperparams, feature importance)
+- **`visualization_generator.py`** (2,167 lines): Charts and plots (feature importance, CV, comparisons)
+- **`metrics_evaluator.py`** (187 lines): Model performance metrics for regression and classification
+- **`performance_analysis.py`** (562 lines): Performance analysis and benchmarking
 
 ### Error Handling & Optimization
 
-- **`xgboost_error_handler.py`**: XGBoost-specific error handling and validation
-- **`xgboost_data_optimizer.py`**: Data optimization for XGBoost performance
-- **`training_monitor.py`**: Training progress monitoring and callbacks
-- **`performance_monitoring.py`**: Runtime performance monitoring
+- **`xgboost_error_handler.py`** (438 lines): XGBoost-specific error handling and validation decorators
+- **`xgboost_data_optimizer.py`** (375 lines): DMatrix conversion, memory handling, dtype optimization
+- **`training_monitor.py`** (368 lines): Training progress monitoring and callbacks
+- **`performance_monitoring.py`** (1,055 lines): Long-term monitoring, degradation detection, retraining suggestions
+
+### Other Modules
+
+- **`config.py`** (11 lines): Server configuration (BASE_URL, MCP_PORT, URL helpers)
+- **`allow_uesr.py`** (8 lines): Simple user access control via `AUTHORIZED_USERS` whitelist
 
 ## MCP Tools Available
 
-The server provides 13 core MCP tools with **unified model_id system**:
+The server provides 14 core MCP tools with **unified model_id system**.
+
+> **Important**: The actual registered tool names use `xgboost` prefix. The table below shows the exact function names as registered with FastMCP.
 
 ### Training Tools (Queue-based)
-1. **`train_xgboost_regressor`** - Submit XGBoost regression training task to queue (returns model_id)
-2. **`train_xgboost_classifier`** - Submit XGBoost classification training task to queue (returns model_id)
+1. **`train_xgboost_regressor`** - Submit XGBoost regression training task (returns model_id)
+   - Params: `data_source`, `target_dimension=1`, `optimize_hyperparameters=True`, `n_trials=50`, `cv_folds=5`, `scoring_metric="MAE"`, `validate_data=True`, `save_model=True`, `apply_preprocessing=True`, `scaling_method="standard"`, `enable_gpu=True`, `device="auto"`
+2. **`train_xgboost_classifier`** - Submit XGBoost classification training task (returns model_id)
+   - Params: `data_source`, `target_dimension=1`, `optimize_hyperparameters=True`, `n_trials=50`, `cv_folds=5`, `scoring_metric="f1_weighted"`, `apply_preprocessing=True`, `scaling_method="standard"`, `validate_data=True`, `save_model=True`, `enable_gpu=True`, `device="auto"`
 
 ### Prediction Tools
-3. **`predict_from_file`** - Batch predictions from CSV files (uses model_id)
-4. **`predict_from_values`** - Real-time predictions from input values (uses model_id)
+3. **`predict_from_file_xgbost`** - Batch predictions from CSV files (uses model_id)
+   - Params: `model_id`, `data_source`, `output_path=None`, `include_confidence=True`, `generate_report=True`
+4. **`predict_from_values_xgboost`** - Real-time predictions from feature values (uses model_id)
+   - Params: `model_id`, `feature_values`, `feature_names=None`, `include_confidence=True`, `save_intermediate_files=True`, `generate_report=True`, `output_path=None`
 
 ### Analysis Tools
-5. **`analyze_global_feature_importance`** - Global feature importance analysis (uses model_id)
-6. **`analyze_local_feature_importance`** - Local feature importance (SHAP/LIME) (uses model_id)
+5. **`analyze_xgboost_global_feature_importance`** - Global feature importance analysis (SHAP, basic, permutation)
+   - Params: `model_id`, `analysis_types=["shap"]`, `generate_plots=True`, `generate_report=True`
+6. **`analyze_xgboost_local_feature_importance`** - Local feature importance (SHAP waterfall, force, decision)
+   - Params: `model_id`, `sample_data=None`, `data_source=None`, `plot_types=["waterfall","force","decision"]`, `generate_plots=True`, `generate_report=True`
+
+### Feature Interaction Decoupling
+7. **`decouple_xgboost_feature_interaction`** - Targeted decoupling of a specific feature pair into synergy/antagonism regions
+   - Params: `model_id`, `feature_1`, `feature_2`, `grid_resolution=30`, `smoothing_sigma=None`, `generate_plots=True`
+   - Unlike the raw SHAP interaction heatmaps in global feature importance (qualitative overview of ALL pairs), this tool performs quantitative region analysis on ONE specified pair using Gaussian-smoothed boundary extraction
 
 ### Model Management Tools
-7. **`list_models`** - List all trained models with metadata
-8. **`get_model_info`** - Detailed model information and statistics (uses model_id)
-9. **`delete_model`** - Remove trained models and associated files (uses model_id)
+8. **`list_xgboost_models`** - List all trained models with metadata
+9. **`get_xgboost_model_info`** - Detailed model information and statistics (uses model_id)
+10. **`delete_xgboost_model`** - Remove trained models and associated files (uses model_id)
 
 ### Queue Management Tools
-10. **`get_training_results`** - Get training results and status using model_id (unified tool)
-11. **`list_training_tasks`** - List all training tasks with their status
-12. **`get_queue_status`** - Get overall training queue status
-13. **`cancel_training_task`** - Cancel a training task using model_id
+11. **`get_xgboost_training_results`** - Get training results and status using model_id (unified tool)
+12. **`list_xgboost_training_tasks`** - List all training tasks with their status (optional `user_id` filter)
+13. **`get_xgboost_queue_status`** - Get overall training queue status
+14. **`cancel_xgboost_training_task`** - Cancel a training task using model_id
+
+### Multi-User Isolation
+
+Most tools accept `ctx: Context` and extract `user_id` from request headers (`ctx.request_context.request.headers.get("user_id")`). This enables per-user model directories under `trained_models/{user_id}/`.
 
 ## File Structure
 
+### Project Root
+```
+MCP_XGBOOST_Tool/
+├── src/mcp_xgboost_tool/          # Main package (all core modules)
+├── trained_models/                 # Model storage ({user_id}/{model_id}/ subdirs)
+├── queue/                          # Training task queue JSON files
+├── prediction_reports/             # Generated prediction reports
+├── single_port_server.py           # Single-port HTTP+MCP server
+├── run_mcp_server_fastapi.py       # FastAPI-based MCP server (stdio/SSE)
+├── main.py                         # Placeholder entry point
+├── requirements.txt                # Python dependencies
+├── pyproject.toml                  # Project metadata (openpyxl, xlrd extras)
+├── uv.lock                         # uv lockfile
+├── CLAUDE.md                       # This file
+├── README.md                       # Project overview
+├── FEATURE_IMPORTANCE_ENHANCEMENT.md  # SHAP v2.0 enhancements doc
+└── LICENSE                         # MIT license
+```
+
 ### Models Directory (`trained_models/`)
 
-Each trained model creates a directory structure:
+Each trained model creates a directory structure (optionally under a user_id subdirectory):
 ```
-trained_models/{model_id}/
+trained_models/[{user_id}/]{model_id}/
 ├── model.joblib                    # Serialized XGBoost model
 ├── preprocessing_pipeline.pkl      # Data preprocessing pipeline
 ├── metadata.json                   # Model metadata and hyperparameters
@@ -124,10 +183,11 @@ trained_models/{model_id}/
 
 ### Configuration
 
-- **`config.py`**: Server configuration (port, URLs, paths)
-- Base URL: `http://localhost:8100`
+- **`config.py`**: Server configuration
+- Base URL: `https://www.matterai.cn/xgboost` (production); `http://localhost:8100` (local, commented out)
 - Default port: `8100`
 - Models directory: `./trained_models`
+- Helper functions: `get_download_url(path)`, `get_static_url(path)`
 
 ## Development Patterns
 
@@ -137,14 +197,17 @@ When adding new MCP tools, follow this pattern in `mcp_server.py`:
 
 ```python
 @mcp.tool()
-def your_tool_name(param1: str, param2: int = 100) -> Dict[str, Any]:
+async def your_tool_name(param1: str, param2: int = 100, ctx: Context = None) -> str:
     """Tool description for MCP clients."""
     try:
+        user_id = None
+        if ctx and hasattr(ctx, 'request_context'):
+            user_id = ctx.request_context.request.headers.get("user_id")
         # Implementation here
-        return {"status": "success", "result": result}
+        return json.dumps({"status": "success", "result": result}, ensure_ascii=False)
     except Exception as e:
         logger.error(f"Error in your_tool_name: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
 ```
 
 ### Error Handling
@@ -156,13 +219,12 @@ from .xgboost_error_handler import xgboost_error_handler
 
 @xgboost_error_handler
 def your_xgboost_function():
-    # XGBoost operations here
     pass
 ```
 
 ### Model ID Generation
 
-Model IDs are generated using UUID4 format. Always use the pattern:
+Model IDs are generated using UUID4 format:
 ```python
 model_id = str(uuid.uuid4())
 ```
@@ -179,25 +241,19 @@ if not validation_result["is_valid"]:
 
 ## Testing
 
-The project includes comprehensive testing with pytest. Tests should cover:
+Test infrastructure (pytest, pytest-asyncio, pytest-cov) is included in `requirements.txt`, but **no test files have been created yet**. The `tests/` directory does not exist. Tests should cover:
 - MCP tool functionality
-- XGBoost wrapper operations  
+- XGBoost wrapper operations
 - Data validation and preprocessing
 - Error handling scenarios
 - Model persistence and loading
 
-Run tests with:
-```bash
-pytest tests/ -v
-```
-
 ## Training Workflow (Queue-Based)
 
-The training tools now use an asynchronous queue-based approach with **unified ID system** for better clarity and concurrency:
+The training tools use an asynchronous queue-based approach with **unified ID system** for better clarity and concurrency:
 
 ### 1. Submit Training Task
 ```python
-# MCP client call
 result = await mcp_client.call_tool("train_xgboost_regressor", {
     "data_source": "/path/to/data.csv",
     "target_dimension": 1,
@@ -205,56 +261,28 @@ result = await mcp_client.call_tool("train_xgboost_regressor", {
     "n_trials": 50,
     "cv_folds": 5
 })
-
-# Returns immediately with unified model_id
-model_id = result["model_id"]  # One ID for both training task and model
-print(result["usage_note"])  # Guidance on using the model_id
+model_id = result["model_id"]
 ```
 
 ### 2. Monitor Progress and Get Results
 ```python
-# Check training status and get results using model_id (unified tool)
-result = await mcp_client.call_tool("get_training_results", {
-    "model_id": model_id  # Use the same model_id throughout
+result = await mcp_client.call_tool("get_xgboost_training_results", {
+    "model_id": model_id
 })
 
-# For running/queued tasks
-if result['training_status'] in ['queued', 'running']:
-    print(f"Training status: {result['training_status']}")
-    print(f"Model ID: {result['model_id']}")
-
-# For completed tasks - all training data is directly available
 if result['training_status'] == 'completed':
-    print(f"Model ID: {result['model_id']}")
     print(f"Performance: {result['performance_summary']}")
-    print(f"Training time: {result['training_time_seconds']}s")
-
-    # Direct access to all training results without re-packaging
     feature_importance = result['feature_importance']
     cv_results = result['cross_validation_results']
     optimization_results = result['optimization_results']
-    model_params = result['model_params']
-    metadata = result['metadata']
 ```
 
 ### 3. Queue Management
 ```python
-# Get overall queue status
-queue_status = await mcp_client.call_tool("get_queue_status", {})
-print(f"Running tasks: {queue_status['queue']['running_tasks']}")
-
-# List all tasks
-tasks = await mcp_client.call_tool("list_training_tasks", {})
-print(f"Total tasks: {tasks['count']}")
-
-# Cancel a training task using model_id
-cancel_result = await mcp_client.call_tool("cancel_training_task", {
-    "model_id": model_id  # Use model_id to cancel
-})
-
-# Check training status and results with unified tool
-training_results = await mcp_client.call_tool("get_training_results", {
-    "model_id": model_id  # Same model_id throughout the workflow
+queue_status = await mcp_client.call_tool("get_xgboost_queue_status", {})
+tasks = await mcp_client.call_tool("list_xgboost_training_tasks", {})
+cancel_result = await mcp_client.call_tool("cancel_xgboost_training_task", {
+    "model_id": model_id
 })
 ```
 
@@ -273,16 +301,34 @@ training_results = await mcp_client.call_tool("get_training_results", {
 - **Status Tracking**: Real-time training status and progress monitoring using model_id
 - **Task Cancellation**: Cancel long-running tasks using model_id
 - **Unified ID System**: Single model_id serves as both task identifier and model identifier
+- **User Isolation**: Per-user model directories via request header `user_id`
 
 ## Dependencies
 
-Key dependencies and their purposes:
+Key dependencies (from `requirements.txt`), requires Python >= 3.12:
+
 - **xgboost>=2.0.0**: Core ML algorithm
 - **scikit-learn>=1.3.0**: ML utilities and metrics
 - **pandas>=2.0.0**: Data manipulation
+- **numpy>=1.24.0**: Numerical computing
 - **optuna>=3.4.0**: Hyperparameter optimization (runs asynchronously)
 - **shap>=0.47.0**: Model explainability
-- **fastapi>=0.104.0**: Web framework
-- **mcp>=1.0.0**: MCP protocol implementation
-- **matplotlib/seaborn/plotly**: Visualization libraries
-- **asyncio**: Async queue management and concurrency control
+- **fastapi>=0.104.0**: Web framework for SSE/HTTP servers
+- **fastmcp>=1.0.0**: FastMCP protocol implementation
+- **uvicorn>=0.24.0**: ASGI server
+- **joblib>=1.3.0**: Model serialization
+- **jinja2>=3.1.0**: Template rendering for reports
+- **pydantic>=2.4.0**: Data validation
+- **psutil>=5.9.0**: System resource monitoring
+- **chardet>=5.0.0**: File encoding detection
+- **scipy>=1.11.0**: Scientific computing
+- **matplotlib>=3.7.0 / seaborn>=0.12.0 / plotly>=5.15.0**: Visualization libraries
+- **openpyxl>=3.1.5 / xlrd>=2.0.2**: Excel file support (in pyproject.toml)
+
+## Known Issues
+
+- `allow_uesr.py` filename contains a typo (should be `allow_user.py`)
+- `predict_from_file_xgbost` tool name has a typo (missing 'o' in `xgboost`)
+- `__main__.py` docstring still references "MCP Neural Network Tool"
+- `__init__.py` has all imports commented out with legacy Random Forest references
+- No test suite exists despite pytest being in dependencies

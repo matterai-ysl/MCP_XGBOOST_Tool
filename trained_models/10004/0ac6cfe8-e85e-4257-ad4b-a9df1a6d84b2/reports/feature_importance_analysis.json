@@ -1,0 +1,146 @@
+{
+  "Na2O": {
+    "weight": 55.0,
+    "gain": 0.3288540840148926,
+    "cover": 7.966755390167236,
+    "sklearn_gain": 0.016498025506734848,
+    "permutation_mean": 0.0014705882352941124,
+    "permutation_std": 0.002941176470588225
+  },
+  "MgO": {
+    "weight": 50.0,
+    "gain": 1.9197443723678589,
+    "cover": 8.937183380126953,
+    "sklearn_gain": 0.09631016850471497,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "Al2O3": {
+    "weight": 65.0,
+    "gain": 0.6377333998680115,
+    "cover": 7.770174026489258,
+    "sklearn_gain": 0.03199395164847374,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "SiO2": {
+    "weight": 62.0,
+    "gain": 1.5666486024856567,
+    "cover": 9.900471687316895,
+    "sklearn_gain": 0.07859598100185394,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "K2O": {
+    "weight": 90.0,
+    "gain": 2.2131998538970947,
+    "cover": 10.972567558288574,
+    "sklearn_gain": 0.11103230714797974,
+    "permutation_mean": 0.20588235294117646,
+    "permutation_std": 0.023252041618885142
+  },
+  "CaO": {
+    "weight": 46.0,
+    "gain": 2.534515619277954,
+    "cover": 12.15717601776123,
+    "sklearn_gain": 0.12715214490890503,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "TiO2": {
+    "weight": 69.0,
+    "gain": 0.5583091378211975,
+    "cover": 8.09430980682373,
+    "sklearn_gain": 0.028009377419948578,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "Fe2O3": {
+    "weight": 104.0,
+    "gain": 1.0068293809890747,
+    "cover": 10.963908195495605,
+    "sklearn_gain": 0.050510842353105545,
+    "permutation_mean": 0.017647058823529394,
+    "permutation_std": 0.0036021907982105974
+  },
+  "As2O3": {
+    "weight": 4.0,
+    "gain": 0.1883019059896469,
+    "cover": 2.946568489074707,
+    "sklearn_gain": 0.009446772746741772,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "MnO": {
+    "weight": 99.0,
+    "gain": 1.2448644638061523,
+    "cover": 9.59768009185791,
+    "sklearn_gain": 0.062452640384435654,
+    "permutation_mean": 0.016176470588235257,
+    "permutation_std": 0.0029411764705882695
+  },
+  "CuO": {
+    "weight": 18.0,
+    "gain": 0.35272422432899475,
+    "cover": 8.181417465209961,
+    "sklearn_gain": 0.01769554801285267,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "ZnO": {
+    "weight": 25.0,
+    "gain": 0.3995984196662903,
+    "cover": 5.501138210296631,
+    "sklearn_gain": 0.0200471431016922,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "PbO2": {
+    "weight": 26.0,
+    "gain": 0.765696108341217,
+    "cover": 8.194215774536133,
+    "sklearn_gain": 0.03841361403465271,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "Rb2O": {
+    "weight": 45.0,
+    "gain": 2.183927297592163,
+    "cover": 14.631200790405273,
+    "sklearn_gain": 0.10956375300884247,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "SrO": {
+    "weight": 61.0,
+    "gain": 0.6771089434623718,
+    "cover": 7.804233551025391,
+    "sklearn_gain": 0.03396935388445854,
+    "permutation_mean": 0.010294117647058787,
+    "permutation_std": 0.0036021907982105427
+  },
+  "Y2O3": {
+    "weight": 72.0,
+    "gain": 1.4473176002502441,
+    "cover": 11.70761775970459,
+    "sklearn_gain": 0.07260935753583908,
+    "permutation_mean": 0.025000000000000022,
+    "permutation_std": 0.0036021907982105436
+  },
+  "ZrO2": {
+    "weight": 35.0,
+    "gain": 1.0442543029785156,
+    "cover": 9.262388229370117,
+    "sklearn_gain": 0.05238838493824005,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  },
+  "P2O5": {
+    "weight": 52.0,
+    "gain": 0.8633071184158325,
+    "cover": 8.974163055419922,
+    "sklearn_gain": 0.043310586363077164,
+    "permutation_mean": 0.0,
+    "permutation_std": 0.0
+  }
+}

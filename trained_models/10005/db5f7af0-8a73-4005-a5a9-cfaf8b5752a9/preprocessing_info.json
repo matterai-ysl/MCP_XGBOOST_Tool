@@ -1,0 +1,54 @@
+{
+  "is_fitted": true,
+  "target_is_fitted": true,
+  "config": {
+    "numerical_features": [
+      "layer_thickness",
+      "hatch_distance",
+      "laser_power",
+      "laser_velocity"
+    ],
+    "categorical_features": [],
+    "scaling_method": "standard",
+    "impute_missing": true,
+    "use_one_hot": false,
+    "target_task_type": "regression",
+    "target_scaling_method": "standard",
+    "target_names": [
+      "target"
+    ],
+    "target_shape": [
+      2703
+    ]
+  },
+  "feature_names_in": [
+    "layer_thickness",
+    "hatch_distance",
+    "laser_power",
+    "laser_velocity"
+  ],
+  "feature_names_out": [
+    "layer_thickness",
+    "hatch_distance",
+    "laser_power",
+    "laser_velocity"
+  ],
+  "target_names": [
+    "target"
+  ],
+  "input_feature_count": 4,
+  "output_feature_count": 4,
+  "preprocessing_steps": [
+    {
+      "transformer_name": "numerical",
+      "columns": [
+        "layer_thickness",
+        "hatch_distance",
+        "laser_power",
+        "laser_velocity"
+      ],
+      "column_count": 4,
+      "scaling_method": "standard"
+    }
+  ]
+}

@@ -293,7 +293,8 @@ class FeatureImportanceAnalyzer:
         dependency_features: Optional[List[str]] = None,
         interaction_features: Optional[List[Tuple[str, str]]] = None,
         model_id: Optional[str] = None,
-        raw_data_path: Optional[str] = None
+        raw_data_path: Optional[str] = None,
+        class_names: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Analyze SHAP values for model interpretability with enhanced dependency and interaction plots.
@@ -367,29 +368,45 @@ class FeatureImportanceAnalyzer:
             
             # Interaction plots will be computed within the _create_shap_interaction_plots method
             
+            # Detect if this is classification (binary or multi-class)
+            is_multi_class = False
+            n_classes = 0
+            shap_values_per_class = None
+            
             # Handle multi-output case (classification)
             if isinstance(self.shap_values, list):
-                # For multi-class classification, use the first class or average
-                if len(self.shap_values) == 2:
-                    # Binary classification - use positive class
-                    shap_values_to_analyze = self.shap_values[1]
-                else:
-                    # Multi-class - use average absolute values across classes
-                    shap_values_to_analyze = np.mean([np.abs(sv) for sv in self.shap_values], axis=0)
+                n_classes = len(self.shap_values)
+                if n_classes >= 2:
+                    # Both binary and multi-class - store per-class SHAP values for detailed analysis
+                    is_multi_class = True
+                    shap_values_per_class = self.shap_values  # List of (n_samples, n_features) arrays
+                    # Also compute average for backward compatibility (use positive class for binary)
+                    if n_classes == 2:
+                        shap_values_to_analyze = self.shap_values[1]  # Use positive class for average
+                        logger.info(f"Binary classification detected - will show per-class importance")
+                    else:
+                        shap_values_to_analyze = np.mean([np.abs(sv) for sv in self.shap_values], axis=0)
+                        logger.info(f"Multi-class classification detected with {n_classes} classes")
             else:
                 # Check if this is a 3D array (samples, features, classes)
                 if self.shap_values.ndim == 3:
-                    if self.shap_values.shape[2] == 2:
-                        # Binary classification - use positive class (index 1)
-                        shap_values_to_analyze = self.shap_values[:, :, 1]
-                    else:
-                        # Multi-class - use average absolute values across classes
-                        shap_values_to_analyze = np.mean(np.abs(self.shap_values), axis=2)
+                    n_classes = self.shap_values.shape[2]
+                    if n_classes >= 2:
+                        # Both binary and multi-class - store per-class SHAP values for detailed analysis
+                        is_multi_class = True
+                        shap_values_per_class = [self.shap_values[:, :, i] for i in range(n_classes)]
+                        # Also compute average for backward compatibility
+                        if n_classes == 2:
+                            shap_values_to_analyze = self.shap_values[:, :, 1]  # Use positive class
+                            logger.info(f"Binary classification detected (3D array) - will show per-class importance")
+                        else:
+                            shap_values_to_analyze = np.mean(np.abs(self.shap_values), axis=2)
+                            logger.info(f"Multi-class classification detected with {n_classes} classes (3D array)")
                 else:
                     # Regression case or single output
                     shap_values_to_analyze = self.shap_values
             
-            # Calculate feature importance from SHAP values
+            # Calculate feature importance from SHAP values (average across all classes for summary)
             feature_importance = np.mean(np.abs(shap_values_to_analyze), axis=0)
             self.shap_feature_importance = feature_importance
             # Debug: Print shapes and data types
@@ -450,8 +467,31 @@ class FeatureImportanceAnalyzer:
                 'interaction_plot_paths': interaction_plot_paths,
                 'shap_interaction_values': create_interaction_plots,
                 'raw_data_used': X_display is not None,
-                'raw_data_source': raw_data_path or (f'model {model_id}/raw_data.csv' if model_id else None)
+                'raw_data_source': raw_data_path or (f'model {model_id}/raw_data.csv' if model_id else None),
+                'is_multi_class': is_multi_class,
+                'n_classes': n_classes if is_multi_class else 0
             }
+            
+            # For multi-class classification, add per-class importance matrix
+            if is_multi_class and shap_values_per_class is not None:
+                # Generate class names if not provided
+                if class_names is None or len(class_names) != n_classes:
+                    class_names = [f"class_{i}" for i in range(n_classes)]
+                
+                importance_matrix = {}
+                for class_idx, class_name in enumerate(class_names):
+                    importance_matrix[class_name] = {}
+                    # Calculate mean absolute SHAP value for each feature in this class
+                    class_shap = shap_values_per_class[class_idx]
+                    class_importance = np.mean(np.abs(class_shap), axis=0)
+                    
+                    for feature_idx, feature_name in enumerate(feature_names):
+                        importance_matrix[class_name][feature_name] = round(float(class_importance[feature_idx]), 4)
+                
+                shap_results['class_names'] = class_names
+                shap_results['importance_matrix'] = importance_matrix
+                shap_results['analysis_method'] = "SHAP"
+                logger.info(f"Multi-class importance matrix created for {n_classes} classes")
             
             logger.info(f"SHAP analysis completed for {X_sample.shape[0]} samples")
             logger.info(f"Top 3 features: {', '.join(top_features['feature'].head(3).tolist())}")
@@ -1753,22 +1793,31 @@ class FeatureImportanceAnalyzer:
         importance_matrix: Dict[str, Dict[str, float]],
         plot_paths: Optional[Dict[str, str]] = None,
         analysis_method: str = "SHAP",
-        include_plots: bool = True
+        include_plots: bool = True,
+        task_type: str = "regression"
     ) -> str:
         """
-        Generate HTML report for multi-target feature importance analysis.
+        Generate HTML report for multi-target/multi-class feature importance analysis.
         
         Args:
-            importance_matrix: Dictionary with target-feature importance values
-            plot_paths: Dictionary mapping target names to plot file paths
+            importance_matrix: Dictionary with target/class-feature importance values
+            plot_paths: Dictionary mapping target/class names to plot file paths
             analysis_method: Method used for analysis (e.g., "SHAP")
             include_plots: Whether to include plots in the report
+            task_type: Task type - "regression" for multi-target regression, 
+                       "classification" for multi-class classification
             
         Returns:
             Path to generated HTML report file
         """
         try:
-            logger.info("Generating multi-target HTML report...")
+            # Determine report labels based on task type
+            is_classification = task_type == "classification"
+            output_type = "Class" if is_classification else "Target"
+            task_description = "multi-class classification" if is_classification else "multi-target regression"
+            title_prefix = "Multi-Class" if is_classification else "Multi-Target"
+            
+            logger.info(f"Generating {task_description} HTML report...")
             
             # Start HTML content
             html_content = f"""
@@ -1777,7 +1826,7 @@ class FeatureImportanceAnalyzer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Target Feature Importance Analysis Report</title>
+    <title>{title_prefix} Feature Importance Analysis Report</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }}
         .container {{ max-width: 1200px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
@@ -1798,22 +1847,23 @@ class FeatureImportanceAnalyzer:
 </head>
 <body>
     <div class="container">
-        <h1>🎯 Multi-Target Feature Importance Analysis Report</h1>
+        <h1>🎯 {title_prefix} Feature Importance Analysis Report</h1>
         
         <div class="summary">
             <h3>📊 Analysis Summary</h3>
+            <p><strong>Task Type:</strong> <span class="method-badge">{task_description}</span></p>
             <p><strong>Analysis Method:</strong> <span class="method-badge">{analysis_method}</span></p>
-            <p><strong>Number of Targets:</strong> {len(importance_matrix)}</p>
+            <p><strong>Number of {output_type}s:</strong> {len(importance_matrix)}</p>
             <p><strong>Generated on:</strong> <span class="timestamp">{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</span></p>
-            <p><strong>Targets Analyzed:</strong> {', '.join(importance_matrix.keys())}</p>
+            <p><strong>{output_type}s Analyzed:</strong> {', '.join(importance_matrix.keys())}</p>
         </div>
 """
             
-            # Add section for each target
+            # Add section for each target/class
             for target_name, feature_importance in importance_matrix.items():
                 html_content += f"""
         <div class="target-section">
-            <h2>🔍 Target: {target_name}</h2>
+            <h2>🔍 {output_type}: {target_name}</h2>
             
             <h3>Top Features by Importance</h3>
             <table class="feature-table">
@@ -1863,11 +1913,26 @@ class FeatureImportanceAnalyzer:
         </div>
 """
             
-            # Close HTML
-            html_content += """
+            # Close HTML with task-type specific notes
+            if is_classification:
+                notes_html = f"""
         <div class="summary">
             <h3>📝 Report Notes</h3>
-            <p>• This report shows feature importance analysis for multi-target regression using {analysis_method} method.</p>
+            <p>• This report shows feature importance analysis for <strong>{task_description}</strong> using {analysis_method} method.</p>
+            <p>• Higher importance values indicate features that have more influence on predicting the specific class.</p>
+            <p>• Rankings are calculated independently for each class.</p>
+            <p>• Relative importance percentages show each feature's contribution relative to all features for that class.</p>
+            <p>• For classification, SHAP values show how features contribute to the model's confidence in each class.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+            else:
+                notes_html = f"""
+        <div class="summary">
+            <h3>📝 Report Notes</h3>
+            <p>• This report shows feature importance analysis for <strong>{task_description}</strong> using {analysis_method} method.</p>
             <p>• Higher importance values indicate features that have more influence on the target prediction.</p>
             <p>• Rankings are calculated independently for each target.</p>
             <p>• Relative importance percentages show each feature's contribution relative to all features for that target.</p>
@@ -1875,7 +1940,8 @@ class FeatureImportanceAnalyzer:
     </div>
 </body>
 </html>
-""".format(analysis_method=analysis_method)
+"""
+            html_content += notes_html
             
             # Save HTML report
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

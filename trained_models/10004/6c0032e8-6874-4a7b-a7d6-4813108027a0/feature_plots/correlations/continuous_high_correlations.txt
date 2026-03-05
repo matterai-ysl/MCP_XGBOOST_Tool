@@ -1,0 +1,18 @@
+High Correlation Pairs in Continuous Features (>=0.7):
+============================================================
+Al2O3 <-> SiO2:
+  Pearson: -0.8174
+  Spearman: -0.7542
+
+K2O <-> Fe2O3:
+  Pearson: -0.7234
+  Spearman: -0.7787
+
+K2O <-> SrO:
+  Pearson: 0.7515
+  Spearman: 0.7723
+
+K2O <-> Rb2O:
+  Pearson: 0.7138
+  Spearman: 0.6929
+

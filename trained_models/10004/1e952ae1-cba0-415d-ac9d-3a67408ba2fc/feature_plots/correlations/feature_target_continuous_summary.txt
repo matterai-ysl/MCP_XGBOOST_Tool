@@ -1,0 +1,136 @@
+Feature-Target Correlation Analysis
+Target: kiln (classification)
+==================================================
+
+CONTINUOUS FEATURES:
+------------------------------
+autoFE_f_9:
+  Method: correlation_ratio
+  Correlation: 0.5376
+  Strength: 0.5376
+
+autoFE_f_7:
+  Method: correlation_ratio
+  Correlation: 0.5073
+  Strength: 0.5073
+
+autoFE_f_3:
+  Method: correlation_ratio
+  Correlation: 0.5033
+  Strength: 0.5033
+
+SiO2:
+  Method: correlation_ratio
+  Correlation: 0.4954
+  Strength: 0.4954
+
+Al2O3:
+  Method: correlation_ratio
+  Correlation: 0.4570
+  Strength: 0.4570
+
+Fe2O3:
+  Method: correlation_ratio
+  Correlation: 0.4355
+  Strength: 0.4355
+
+Y2O3:
+  Method: correlation_ratio
+  Correlation: 0.4348
+  Strength: 0.4348
+
+MnO:
+  Method: correlation_ratio
+  Correlation: 0.4315
+  Strength: 0.4315
+
+P2O5:
+  Method: correlation_ratio
+  Correlation: 0.3203
+  Strength: 0.3203
+
+SrO:
+  Method: correlation_ratio
+  Correlation: 0.3134
+  Strength: 0.3134
+
+Rb2O:
+  Method: correlation_ratio
+  Correlation: 0.3035
+  Strength: 0.3035
+
+CaO:
+  Method: correlation_ratio
+  Correlation: 0.2962
+  Strength: 0.2962
+
+autoFE_f_1:
+  Method: correlation_ratio
+  Correlation: 0.2785
+  Strength: 0.2785
+
+K2O:
+  Method: correlation_ratio
+  Correlation: 0.2771
+  Strength: 0.2771
+
+autoFE_f_4:
+  Method: correlation_ratio
+  Correlation: 0.2674
+  Strength: 0.2674
+
+autoFE_f_2:
+  Method: correlation_ratio
+  Correlation: 0.2632
+  Strength: 0.2632
+
+ZrO2:
+  Method: correlation_ratio
+  Correlation: 0.2613
+  Strength: 0.2613
+
+autoFE_f_5:
+  Method: correlation_ratio
+  Correlation: 0.2444
+  Strength: 0.2444
+
+autoFE_f_6:
+  Method: correlation_ratio
+  Correlation: 0.2402
+  Strength: 0.2402
+
+autoFE_f_8:
+  Method: correlation_ratio
+  Correlation: 0.1690
+  Strength: 0.1690
+
+autoFE_f_0:
+  Method: correlation_ratio
+  Correlation: 0.1588
+  Strength: 0.1588
+
+Na2O:
+  Method: correlation_ratio
+  Correlation: 0.1303
+  Strength: 0.1303
+
+ZnO:
+  Method: correlation_ratio
+  Correlation: 0.0757
+  Strength: 0.0757
+
+PbO2:
+  Method: correlation_ratio
+  Correlation: 0.0633
+  Strength: 0.0633
+
+MgO:
+  Method: correlation_ratio
+  Correlation: 0.0356
+  Strength: 0.0356
+
+CuO:
+  Method: correlation_ratio
+  Correlation: 0.0325
+  Strength: 0.0325
+

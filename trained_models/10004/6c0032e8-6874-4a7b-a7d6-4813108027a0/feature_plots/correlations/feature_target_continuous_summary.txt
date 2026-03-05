@@ -1,0 +1,91 @@
+Feature-Target Correlation Analysis
+Target: Dynasty (classification)
+==================================================
+
+CONTINUOUS FEATURES:
+------------------------------
+K2O:
+  Method: correlation_ratio
+  Correlation: 0.6467
+  Strength: 0.6467
+
+Fe2O3:
+  Method: correlation_ratio
+  Correlation: 0.5321
+  Strength: 0.5321
+
+ZrO2:
+  Method: correlation_ratio
+  Correlation: 0.5006
+  Strength: 0.5006
+
+Rb2O:
+  Method: correlation_ratio
+  Correlation: 0.4755
+  Strength: 0.4755
+
+Al2O3:
+  Method: correlation_ratio
+  Correlation: 0.4682
+  Strength: 0.4682
+
+Y2O3:
+  Method: correlation_ratio
+  Correlation: 0.4473
+  Strength: 0.4473
+
+SiO2:
+  Method: correlation_ratio
+  Correlation: 0.4200
+  Strength: 0.4200
+
+MnO:
+  Method: correlation_ratio
+  Correlation: 0.4071
+  Strength: 0.4071
+
+SrO:
+  Method: correlation_ratio
+  Correlation: 0.3768
+  Strength: 0.3768
+
+MgO:
+  Method: correlation_ratio
+  Correlation: 0.3186
+  Strength: 0.3186
+
+Na2O:
+  Method: correlation_ratio
+  Correlation: 0.2639
+  Strength: 0.2639
+
+ZnO:
+  Method: correlation_ratio
+  Correlation: 0.2298
+  Strength: 0.2298
+
+PbO2:
+  Method: correlation_ratio
+  Correlation: 0.1656
+  Strength: 0.1656
+
+P2O5:
+  Method: correlation_ratio
+  Correlation: 0.0883
+  Strength: 0.0883
+
+CuO:
+  Method: correlation_ratio
+  Correlation: 0.0531
+  Strength: 0.0531
+
+TiO2:
+  Method: correlation_ratio
+  Correlation: 0.0291
+  Strength: 0.0291
+
+CaO:
+  Method: correlation_ratio
+  Correlation: 0.0264
+  Strength: 0.0264
+

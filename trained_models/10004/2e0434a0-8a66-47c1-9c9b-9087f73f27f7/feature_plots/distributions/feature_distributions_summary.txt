@@ -1,0 +1,443 @@
+FEATURE DISTRIBUTION ANALYSIS SUMMARY
+==================================================
+
+Task Type: Classification
+Target Column(s): kiln
+Analysis Date: 2025-12-26 20:42:39
+
+CONTINUOUS FEATURES ANALYSIS
+------------------------------
+
+Na2O:
+  Count: 139
+  Mean: 0.4183
+  Std: 0.2929
+  Range: [0.0636, 1.6364]
+  Quartiles: Q1=0.2289, Q2=0.3418, Q3=0.5168
+  Skewness: 1.3725 (highly skewed)
+  Skew Severity: high
+  Outliers: 9 (6.47%)
+  Outlier Severity: moderate
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+MgO:
+  Count: 139
+  Mean: 0.1362
+  Std: 0.1272
+  Range: [0.0000, 0.5289]
+  Quartiles: Q1=0.0171, Q2=0.1121, Q3=0.2171
+  Skewness: 0.8930 (moderately skewed)
+  Skew Severity: moderate
+  Outliers: 1 (0.72%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0001 (Normal: No)
+    dagostino: p=0.0003 (Normal: No)
+
+Al2O3:
+  Count: 139
+  Mean: 19.4991
+  Std: 1.8910
+  Range: [14.1948, 26.1009]
+  Quartiles: Q1=18.2816, Q2=19.3645, Q3=20.7168
+  Skewness: 0.1351 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 2 (1.44%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.6438 (Normal: Yes)
+    jarque_bera: p=0.2939 (Normal: Yes)
+    dagostino: p=0.2604 (Normal: Yes)
+
+SiO2:
+  Count: 139
+  Mean: 72.8174
+  Std: 1.9080
+  Range: [66.6702, 78.2333]
+  Quartiles: Q1=71.7681, Q2=72.6321, Q3=73.9508
+  Skewness: 0.1563 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 4 (2.88%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.3336 (Normal: Yes)
+    jarque_bera: p=0.2837 (Normal: Yes)
+    dagostino: p=0.2475 (Normal: Yes)
+
+K2O:
+  Count: 139
+  Mean: 4.9635
+  Std: 1.2785
+  Range: [2.5857, 7.7478]
+  Quartiles: Q1=3.9729, Q2=4.7760, Q3=5.9212
+  Skewness: 0.2806 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0022 (Normal: No)
+    jarque_bera: p=0.0382 (Normal: No)
+    dagostino: p=0.0004 (Normal: No)
+
+Fe2O3:
+  Count: 139
+  Mean: 0.9192
+  Std: 0.2456
+  Range: [0.5795, 2.0720]
+  Quartiles: Q1=0.7045, Q2=0.8800, Q3=1.1001
+  Skewness: 1.1921 (highly skewed)
+  Skew Severity: high
+  Outliers: 2 (1.44%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+MnO:
+  Count: 139
+  Mean: 387.3381
+  Std: 194.3013
+  Range: [90.0000, 1190.0000]
+  Quartiles: Q1=235.0000, Q2=350.0000, Q3=500.0000
+  Skewness: 1.2150 (highly skewed)
+  Skew Severity: high
+  Outliers: 3 (2.16%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+CuO:
+  Count: 139
+  Mean: 40.0719
+  Std: 27.1735
+  Range: [0.0000, 140.0000]
+  Quartiles: Q1=20.0000, Q2=40.0000, Q3=60.0000
+  Skewness: 0.5230 (moderately skewed)
+  Skew Severity: moderate
+  Outliers: 1 (0.72%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0001 (Normal: No)
+    jarque_bera: p=0.0183 (Normal: No)
+    dagostino: p=0.0163 (Normal: No)
+
+ZnO:
+  Count: 139
+  Mean: 138.4173
+  Std: 55.6289
+  Range: [60.0000, 360.0000]
+  Quartiles: Q1=100.0000, Q2=120.0000, Q3=160.0000
+  Skewness: 1.4675 (highly skewed)
+  Skew Severity: high
+  Outliers: 8 (5.76%)
+  Outlier Severity: moderate
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+PbO2:
+  Count: 139
+  Mean: 84.2446
+  Std: 50.6334
+  Range: [0.0000, 280.0000]
+  Quartiles: Q1=50.0000, Q2=80.0000, Q3=105.0000
+  Skewness: 1.2465 (highly skewed)
+  Skew Severity: high
+  Outliers: 8 (5.76%)
+  Outlier Severity: moderate
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+Rb2O:
+  Count: 139
+  Mean: 289.7842
+  Std: 36.2853
+  Range: [200.0000, 390.0000]
+  Quartiles: Q1=260.0000, Q2=290.0000, Q3=320.0000
+  Skewness: 0.1718 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0492 (Normal: No)
+    jarque_bera: p=0.4146 (Normal: Yes)
+    dagostino: p=0.3834 (Normal: Yes)
+
+SrO:
+  Count: 139
+  Mean: 69.4245
+  Std: 34.3631
+  Range: [0.0000, 150.0000]
+  Quartiles: Q1=40.0000, Q2=70.0000, Q3=95.0000
+  Skewness: 0.1748 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0076 (Normal: No)
+    jarque_bera: p=0.0910 (Normal: Yes)
+    dagostino: p=0.0034 (Normal: No)
+
+Y2O3:
+  Count: 139
+  Mean: 118.4892
+  Std: 75.8327
+  Range: [40.0000, 630.0000]
+  Quartiles: Q1=80.0000, Q2=100.0000, Q3=135.0000
+  Skewness: 3.3515 (extremely skewed)
+  Skew Severity: severe
+  Outliers: 12 (8.63%)
+  Outlier Severity: moderate
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+ZrO2:
+  Count: 139
+  Mean: 182.2302
+  Std: 46.7191
+  Range: [100.0000, 390.0000]
+  Quartiles: Q1=150.0000, Q2=170.0000, Q3=210.0000
+  Skewness: 1.3141 (highly skewed)
+  Skew Severity: high
+  Outliers: 2 (1.44%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+P2O5:
+  Count: 139
+  Mean: 38.3453
+  Std: 33.8496
+  Range: [0.0000, 180.0000]
+  Quartiles: Q1=10.0000, Q2=30.0000, Q3=60.0000
+  Skewness: 0.9935 (moderately skewed)
+  Skew Severity: moderate
+  Outliers: 1 (0.72%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+autoFE_f_0:
+  Count: 139
+  Mean: 22.5268
+  Std: 5.4708
+  Range: [10.7812, 33.9415]
+  Quartiles: Q1=18.6505, Q2=23.6121, Q3=26.5968
+  Skewness: -0.1948 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0180 (Normal: No)
+    jarque_bera: p=0.0888 (Normal: Yes)
+    dagostino: p=0.0041 (Normal: No)
+
+autoFE_f_1:
+  Count: 139
+  Mean: 0.0637
+  Std: 0.0324
+  Range: [0.0161, 0.2101]
+  Quartiles: Q1=0.0396, Q2=0.0561, Q3=0.0832
+  Skewness: 1.2728 (highly skewed)
+  Skew Severity: high
+  Outliers: 2 (1.44%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+autoFE_f_2:
+  Count: 139
+  Mean: 0.5791
+  Std: 0.2955
+  Range: [0.0417, 1.0000]
+  Quartiles: Q1=0.3333, Q2=0.5833, Q3=0.8333
+  Skewness: -0.0506 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0124 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+autoFE_f_3:
+  Count: 139
+  Mean: 19.4470
+  Std: 1.2866
+  Range: [15.4444, 23.7705]
+  Quartiles: Q1=18.9143, Q2=19.2992, Q3=20.1144
+  Skewness: -0.0592 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 12 (8.63%)
+  Outlier Severity: moderate
+  Normality Tests:
+    shapiro: p=0.0001 (Normal: No)
+    jarque_bera: p=0.0002 (Normal: No)
+    dagostino: p=0.0143 (Normal: No)
+
+autoFE_f_4:
+  Count: 139
+  Mean: 4.3194
+  Std: 2.1150
+  Range: [0.0000, 7.7478]
+  Quartiles: Q1=3.6074, Q2=4.5756, Q3=5.8635
+  Skewness: -0.8507 (moderately skewed)
+  Skew Severity: moderate
+  Outliers: 20 (14.39%)
+  Outlier Severity: high
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0002 (Normal: No)
+    dagostino: p=0.0007 (Normal: No)
+
+autoFE_f_5:
+  Count: 139
+  Mean: -43.8129
+  Std: 73.3998
+  Range: [-280.0000, 210.0000]
+  Quartiles: Q1=-80.0000, Q2=-50.0000, Q3=0.0000
+  Skewness: -0.0837 (approximately symmetric)
+  Skew Severity: low
+  Outliers: 4 (2.88%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0881 (Normal: Yes)
+    jarque_bera: p=0.0323 (Normal: No)
+    dagostino: p=0.0826 (Normal: Yes)
+
+autoFE_f_6:
+  Count: 139
+  Mean: 88.1295
+  Std: 25.7516
+  Range: [20.0000, 140.0000]
+  Quartiles: Q1=70.0000, Q2=80.0000, Q3=110.0000
+  Skewness: 0.5709 (moderately skewed)
+  Skew Severity: moderate
+  Outliers: 0 (0.00%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0208 (Normal: No)
+    dagostino: p=0.0248 (Normal: No)
+
+autoFE_f_7:
+  Count: 139
+  Mean: 0.0029
+  Std: 0.0017
+  Range: [0.0009, 0.0112]
+  Quartiles: Q1=0.0019, Q2=0.0024, Q3=0.0034
+  Skewness: 1.9764 (highly skewed)
+  Skew Severity: high
+  Outliers: 14 (10.07%)
+  Outlier Severity: high
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+autoFE_f_8:
+  Count: 139
+  Mean: -205.5396
+  Std: 69.9604
+  Range: [-350.0000, 60.0000]
+  Quartiles: Q1=-250.0000, Q2=-220.0000, Q3=-170.0000
+  Skewness: 0.9090 (moderately skewed)
+  Skew Severity: moderate
+  Outliers: 5 (3.60%)
+  Outlier Severity: low
+  Normality Tests:
+    shapiro: p=0.0001 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+autoFE_f_9:
+  Count: 139
+  Mean: 264.1555
+  Std: 74.5155
+  Range: [162.2637, 642.3321]
+  Quartiles: Q1=217.6948, Q2=242.5926, Q3=286.9849
+  Skewness: 2.0460 (extremely skewed)
+  Skew Severity: severe
+  Outliers: 10 (7.19%)
+  Outlier Severity: moderate
+  Normality Tests:
+    shapiro: p=0.0000 (Normal: No)
+    jarque_bera: p=0.0000 (Normal: No)
+    dagostino: p=0.0000 (Normal: No)
+
+
+CATEGORICAL FEATURES ANALYSIS
+------------------------------
+
+As2O3:
+  Count: 139
+  Unique Values: 4
+  Most Common: '70' (71.22%)
+  Least Common: '40' (0.72%)
+  Cardinality: Low (≤5)
+  Imbalance Ratio: 99.00:1
+  Imbalance Severity: severe_imbalance
+
+
+RECOMMENDATIONS
+---------------
+1. Consider applying log transformation or Box-Cox transformation to highly skewed features
+2. Investigate and handle outliers using robust scaling or outlier detection methods
+3. Consider normality transformations for features that will be used in algorithms assuming normality
+4. Consider normality transformations for features that will be used in algorithms assuming normality
+5. Consider normality transformations for features that will be used in algorithms assuming normality
+6. Consider applying log transformation or Box-Cox transformation to highly skewed features
+7. Consider normality transformations for features that will be used in algorithms assuming normality
+8. Consider applying log transformation or Box-Cox transformation to highly skewed features
+9. Consider normality transformations for features that will be used in algorithms assuming normality
+10. Consider normality transformations for features that will be used in algorithms assuming normality
+11. Consider applying log transformation or Box-Cox transformation to highly skewed features
+12. Investigate and handle outliers using robust scaling or outlier detection methods
+13. Consider normality transformations for features that will be used in algorithms assuming normality
+14. Consider applying log transformation or Box-Cox transformation to highly skewed features
+15. Investigate and handle outliers using robust scaling or outlier detection methods
+16. Consider normality transformations for features that will be used in algorithms assuming normality
+17. Consider normality transformations for features that will be used in algorithms assuming normality
+18. Consider applying log transformation or Box-Cox transformation to highly skewed features
+19. Investigate and handle outliers using robust scaling or outlier detection methods
+20. Consider normality transformations for features that will be used in algorithms assuming normality
+21. Consider applying log transformation or Box-Cox transformation to highly skewed features
+22. Consider normality transformations for features that will be used in algorithms assuming normality
+23. Consider normality transformations for features that will be used in algorithms assuming normality
+24. Consider normality transformations for features that will be used in algorithms assuming normality
+25. Consider applying log transformation or Box-Cox transformation to highly skewed features
+26. Consider normality transformations for features that will be used in algorithms assuming normality
+27. Consider normality transformations for features that will be used in algorithms assuming normality
+28. Investigate and handle outliers using robust scaling or outlier detection methods
+29. Consider normality transformations for features that will be used in algorithms assuming normality
+30. Investigate and handle outliers using robust scaling or outlier detection methods
+31. Consider normality transformations for features that will be used in algorithms assuming normality
+32. Consider normality transformations for features that will be used in algorithms assuming normality
+33. Consider applying log transformation or Box-Cox transformation to highly skewed features
+34. Investigate and handle outliers using robust scaling or outlier detection methods
+35. Consider normality transformations for features that will be used in algorithms assuming normality
+36. Consider normality transformations for features that will be used in algorithms assuming normality
+37. Consider applying log transformation or Box-Cox transformation to highly skewed features
+38. Investigate and handle outliers using robust scaling or outlier detection methods
+39. Consider normality transformations for features that will be used in algorithms assuming normality
+40. Address categorical imbalance through sampling techniques or feature grouping
+41. For classification tasks, ensure feature distributions don't indicate data leakage
+42. Consider feature scaling for distance-based algorithms

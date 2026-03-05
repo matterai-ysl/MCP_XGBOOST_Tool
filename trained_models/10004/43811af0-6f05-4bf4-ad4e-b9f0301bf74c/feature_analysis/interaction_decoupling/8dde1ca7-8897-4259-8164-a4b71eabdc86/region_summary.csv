@@ -1,5 +1,0 @@
-type,label_id,feature_1_range,feature_2_range,average_interaction_value,data_coverage_percent,description
-synergy,1,"[10.21, 19.39]","[0.0686, 3.0674]",0.000141,4.1,"Synergy: when SiO2 ∈ [10.21, 19.39] and vinyl ∈ [0.0686, 3.067], these two features cooperate to increase the prediction (avg interaction = +0.0001)"
-antagonism,3,"[10.21, 39.79]","[0.0686, 9.7314]",-0.000135,53.1,"Antagonism: when SiO2 ∈ [10.21, 39.79] and vinyl ∈ [0.0686, 9.731], these two features counteract each other, reducing the prediction (avg interaction = -0.0001)"
-synergy,2,"[19.39, 39.79]","[3.7338, 9.7314]",0.000102,36.7,"Synergy: when SiO2 ∈ [19.39, 39.79] and vinyl ∈ [3.734, 9.731], these two features cooperate to increase the prediction (avg interaction = +0.0001)"
-antagonism,4,"[35.71, 39.79]","[6.0662, 9.7314]",-3.1e-05,6.1,"Antagonism: when SiO2 ∈ [35.71, 39.79] and vinyl ∈ [6.066, 9.731], these two features counteract each other, reducing the prediction (avg interaction = -0.0000)"

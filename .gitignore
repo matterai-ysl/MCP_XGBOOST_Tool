@@ -8,6 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+trained_models
 train_models/
 queue/
 # Logs
